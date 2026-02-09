@@ -3,7 +3,7 @@ import { supabase } from "./supabaseClient";
 import { Save, CheckCircle2 } from "lucide-react";
 
 export default function MatchCard({ match, userId }) {
-  // Estado local para os inputs (gols casa e gols fora)
+
   const [homeScore, setHomeScore] = useState("");
   const [awayScore, setAwayScore] = useState("");
   const [loading, setLoading] = useState(false);
