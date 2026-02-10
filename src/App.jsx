@@ -3,6 +3,7 @@ import { supabase } from "./supabaseClient";
 import Login from "./Login";
 import MatchCard from "./MatchCard";
 import Ranking from "./Ranking";
+import Admin from "./Admin";
 import { LogOut, Trophy, Gamepad2 } from "lucide-react";
 
 function App() {
