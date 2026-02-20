@@ -1,53 +1,71 @@
 import { useState, useEffect } from "react";
 import { supabase } from "./supabaseClient";
+import { Trash2, Save, CalendarPlus, ShieldAlert } from "lucide-react";
 
 export default function Admin({ session }) {
   const [matches, setMatches] = useState([]);
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [newMatch, setNewMatch] = useState({
+    home: "",
+    away: "",
+    time: "",
+    phase: "groups",
+  });
 
-  // Estado para novo jogo
-  const [newMatch, setNewMatch] = useState({ home: "", away: "", time: "" });
+  // E-mail oficial do administrador (mesmo do App.jsx)
+  const ADMIN_EMAIL = "guilherme@dellut.com.br";
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (session?.user?.email === ADMIN_EMAIL) {
+      fetchData();
+    } else {
+      setLoading(false);
+    }
+  }, [session]);
 
   async function fetchData() {
-    // Busca jogos
     const { data: matchesData } = await supabase
       .from("matches")
       .select(`*, teams_home:home_team_id(name), teams_away:away_team_id(name)`)
       .order("match_time", { ascending: false });
 
-    // Busca times (para o select de criar jogo)
-    const { data: teamsData } = await supabase.from("teams").select("*");
+    const { data: teamsData } = await supabase
+      .from("teams")
+      .select("*")
+      .order("name");
 
     setMatches(matchesData || []);
     setTeams(teamsData || []);
     setLoading(false);
   }
 
-  // Função para criar jogo novo
   async function handleCreateMatch(e) {
     e.preventDefault();
+    if (!newMatch.home || !newMatch.away || !newMatch.time)
+      return alert("Preencha os times e a data!");
+
     const { error } = await supabase.from("matches").insert({
       home_team_id: newMatch.home,
       away_team_id: newMatch.away,
       match_time: newMatch.time,
+      phase: newMatch.phase,
       status: "scheduled",
     });
 
     if (error) alert("Erro ao criar: " + error.message);
     else {
-      alert("Jogo criado!");
-      fetchData(); // Recarrega a lista
+      alert("Jogo criado com sucesso!");
+      fetchData();
     }
   }
 
-  // Função para atualizar placar e finalizar jogo
   async function handleUpdateScore(matchId, homeScore, awayScore) {
-    if (!confirm("Tem certeza? Isso vai atualizar o ranking de todo mundo!"))
+    if (
+      !confirm(
+        "Confirmar resultado final? Isso vai calcular os pontos de todos.",
+      )
+    )
       return;
 
     const { error } = await supabase
@@ -66,113 +84,199 @@ export default function Admin({ session }) {
     }
   }
 
-  // Verifica se é você mesmo (Segurança extra no Front)
-  if (session?.user?.email !== "SEU_EMAIL_AQUI@dellut.com.br") {
+  async function handleDeleteMatch(id) {
+    if (!confirm("Tem certeza que deseja apagar este jogo?")) return;
+    const { error } = await supabase.from("matches").delete().eq("id", id);
+    if (error) alert("Erro ao apagar: " + error.message);
+    else fetchData();
+  }
+
+  if (loading)
+    return <div className="p-10 text-center">Carregando painel...</div>;
+
+  if (session?.user?.email !== ADMIN_EMAIL) {
     return (
-      <div className="p-10 text-center text-red-600">Acesso Negado 🚫</div>
+      <div className="max-w-md mx-auto mt-10 p-6 bg-red-50 border border-red-200 rounded-xl text-center shadow-lg">
+        <ShieldAlert size={48} className="mx-auto text-red-600 mb-4" />
+        <h2 className="text-xl font-bold text-red-700 mb-2">Acesso Negado</h2>
+        <p className="text-gray-600 mb-6">
+          Você não tem permissão de administrador.
+        </p>
+      </div>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6 bg-white rounded-xl shadow-md mt-6">
-      <h2 className="text-2xl font-bold mb-6 text-gray-800">
-        Painel Administrativo 🛠️
-      </h2>
+    <div className="max-w-5xl mx-auto p-4 bg-white rounded-xl shadow-md mt-6 mb-20">
+      <div className="flex items-center gap-2 mb-6 border-b pb-4">
+        <div className="bg-gray-800 p-2 rounded-lg text-white">
+          <ShieldAlert size={24} />
+        </div>
+        <div>
+          <h2 className="text-2xl font-bold text-gray-800">
+            Painel Administrativo
+          </h2>
+          <p className="text-sm text-gray-500">Gerencie os jogos da Copa</p>
+        </div>
+      </div>
 
-      {/* Formulário de Novo Jogo */}
-      <div className="bg-gray-50 p-4 rounded-lg mb-8 border border-gray-200">
-        <h3 className="font-bold mb-4 text-gray-700">Adicionar Novo Jogo</h3>
-        <form onSubmit={handleCreateMatch} className="flex gap-4 flex-wrap">
-          <select
-            className="p-2 border rounded"
-            onChange={(e) => setNewMatch({ ...newMatch, home: e.target.value })}
-          >
-            <option>Time da Casa</option>
-            {teams.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
+      <div className="bg-gray-50 p-6 rounded-xl mb-8 border border-gray-100 shadow-inner">
+        <h3 className="font-bold mb-4 text-gray-700 flex items-center gap-2">
+          <CalendarPlus size={20} /> Novo Jogo
+        </h3>
+        <form
+          onSubmit={handleCreateMatch}
+          className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end"
+        >
+          <div>
+            <label className="text-xs font-bold text-gray-500 uppercase">
+              Fase do Torneio
+            </label>
+            <select
+              className="w-full p-2 border border-brand-300 rounded bg-brand-50 font-bold text-brand-700"
+              onChange={(e) =>
+                setNewMatch({ ...newMatch, phase: e.target.value })
+              }
+              value={newMatch.phase}
+            >
+              <option value="groups">Fase de Grupos (5/3 pts)</option>
+              <option value="knockout">Mata-Mata (8/5 pts)</option>
+            </select>
+          </div>
 
-          <span className="self-center font-bold">VS</span>
+          <div>
+            <label className="text-xs font-bold text-gray-500 uppercase">
+              Time Casa
+            </label>
+            <select
+              className="w-full p-2 border rounded bg-white"
+              onChange={(e) =>
+                setNewMatch({ ...newMatch, home: e.target.value })
+              }
+            >
+              <option value="">Selecionar...</option>
+              {teams.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </div>
 
-          <select
-            className="p-2 border rounded"
-            onChange={(e) => setNewMatch({ ...newMatch, away: e.target.value })}
-          >
-            <option>Visitante</option>
-            {teams.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
+          <div>
+            <label className="text-xs font-bold text-gray-500 uppercase">
+              Time Visitante
+            </label>
+            <select
+              className="w-full p-2 border rounded bg-white"
+              onChange={(e) =>
+                setNewMatch({ ...newMatch, away: e.target.value })
+              }
+            >
+              <option value="">Selecionar...</option>
+              {teams.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </div>
 
-          <input
-            type="datetime-local"
-            className="p-2 border rounded"
-            onChange={(e) => setNewMatch({ ...newMatch, time: e.target.value })}
-          />
+          <div>
+            <label className="text-xs font-bold text-gray-500 uppercase">
+              Data/Hora
+            </label>
+            <input
+              type="datetime-local"
+              className="w-full p-2 border rounded bg-white text-sm"
+              onChange={(e) =>
+                setNewMatch({ ...newMatch, time: e.target.value })
+              }
+            />
+          </div>
 
           <button
             type="submit"
-            className="bg-brand-600 text-white px-4 py-2 rounded hover:bg-brand-700"
+            className="bg-brand-600 text-white px-4 py-2.5 rounded font-bold hover:bg-brand-700 transition shadow-md"
           >
-            Agendar
+            Criar Jogo
           </button>
         </form>
       </div>
 
-      {/* Lista de Jogos para Editar */}
-      <h3 className="font-bold mb-4 text-gray-700">Gerenciar Resultados</h3>
-      <div className="space-y-4">
+      <h3 className="font-bold mb-4 text-gray-700 pl-2 border-l-4 border-brand-500">
+        Jogos Cadastrados
+      </h3>
+      <div className="space-y-3">
         {matches.map((match) => (
           <div
             key={match.id}
-            className="flex items-center justify-between border p-4 rounded-lg hover:bg-gray-50"
+            className="flex flex-col md:flex-row items-center justify-between border border-gray-200 p-4 rounded-lg hover:shadow-md transition bg-white"
           >
-            <div className="text-sm">
-              <span className="font-bold text-gray-800">
-                {match.teams_home?.name}
+            <div className="flex-1 mb-4 md:mb-0 text-center md:text-left">
+              <span
+                className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider ${match.phase === "knockout" ? "bg-orange-100 text-orange-700" : "bg-blue-100 text-blue-700"}`}
+              >
+                {match.phase === "knockout" ? "🔥 Mata-Mata" : "📊 Grupos"}
               </span>
-              <span className="mx-2 text-gray-400">vs</span>
-              <span className="font-bold text-gray-800">
-                {match.teams_away?.name}
-              </span>
-              <div className="text-xs text-gray-500 mt-1">
-                {new Date(match.match_time).toLocaleString("pt-BR")} -{" "}
-                {match.status}
+
+              <div className="flex items-center justify-center md:justify-start gap-2 text-lg font-bold text-gray-800 mt-2">
+                <span>{match.teams_home?.name}</span>
+                <span className="text-gray-300 text-sm">vs</span>
+                <span>{match.teams_away?.name}</span>
+              </div>
+              <div className="text-xs text-gray-400 mt-1 uppercase tracking-wide">
+                {new Date(match.match_time).toLocaleString("pt-BR")} •{" "}
+                {match.status === "finished" ? "Encerrado" : "Agendado"}
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3 bg-gray-50 p-2 rounded-lg justify-center">
               <input
                 type="number"
                 placeholder={match.home_score ?? "-"}
-                className="w-12 p-1 border rounded text-center"
+                className="w-12 h-10 p-1 border border-gray-300 rounded text-center font-bold"
                 id={`home-${match.id}`}
+                defaultValue={match.home_score}
               />
-              <span>x</span>
+              <span className="text-gray-400 font-bold">:</span>
               <input
                 type="number"
                 placeholder={match.away_score ?? "-"}
-                className="w-12 p-1 border rounded text-center"
+                className="w-12 h-10 p-1 border border-gray-300 rounded text-center font-bold"
                 id={`away-${match.id}`}
+                defaultValue={match.away_score}
               />
+
               <button
                 onClick={() => {
                   const h = document.getElementById(`home-${match.id}`).value;
                   const a = document.getElementById(`away-${match.id}`).value;
-                  if (h && a) handleUpdateScore(match.id, h, a);
+                  if (h !== "" && a !== "") handleUpdateScore(match.id, h, a);
                 }}
-                className="bg-green-600 text-white text-xs px-3 py-2 rounded hover:bg-green-700"
+                className="bg-green-600 text-white p-2 rounded hover:bg-green-700 transition"
+                title="Salvar Resultado Final"
               >
-                Finalizar
+                <Save size={18} />
+              </button>
+
+              <div className="w-px h-8 bg-gray-300 mx-1"></div>
+
+              <button
+                onClick={() => handleDeleteMatch(match.id)}
+                className="text-red-400 hover:text-red-600 hover:bg-red-50 p-2 rounded transition"
+                title="Apagar Jogo"
+              >
+                <Trash2 size={18} />
               </button>
             </div>
           </div>
         ))}
+        {matches.length === 0 && (
+          <p className="text-center text-gray-400 py-10">
+            Nenhum jogo cadastrado.
+          </p>
+        )}
       </div>
     </div>
   );
