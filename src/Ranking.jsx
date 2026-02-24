@@ -53,16 +53,15 @@ export default function Ranking() {
             className="flex items-center justify-between p-4 border-b hover:bg-gray-50 transition"
           >
             <div className="flex items-center gap-4">
-              {/* Posição (Cores Especiais para o Top 3) */}
               <div
                 className={`w-10 h-10 flex items-center justify-center rounded-full font-black text-lg
                 ${
                   index === 0
-                    ? "bg-yellow-100 text-yellow-600"
+                    ? "bg-yellow-100 text-yellow-600 shadow-sm border border-yellow-200"
                     : index === 1
-                      ? "bg-gray-200 text-gray-500"
+                      ? "bg-gray-200 text-gray-500 shadow-sm border border-gray-300"
                       : index === 2
-                        ? "bg-orange-100 text-orange-600"
+                        ? "bg-orange-100 text-orange-600 shadow-sm border border-orange-200"
                         : "bg-gray-50 text-gray-400"
                 }`}
               >
@@ -70,11 +69,13 @@ export default function Ranking() {
               </div>
 
               <div>
+                {/* AQUI ESTÁ A ATUALIZAÇÃO DO NOME */}
                 <div className="font-bold text-gray-800 text-lg">
-                  Jogador {user.user_id.substring(0, 5).toUpperCase()}
+                  {user.user_name
+                    ? user.user_name
+                    : `Jogador ${user.user_id.substring(0, 5).toUpperCase()}`}
                 </div>
 
-                {/* Detalhes de Desempate */}
                 <div className="text-xs text-gray-500 flex items-center gap-3 mt-1">
                   <span className="flex items-center gap-1 text-green-600 font-medium">
                     <Target size={14} /> {user.exact_count} na mosca
@@ -86,7 +87,6 @@ export default function Ranking() {
               </div>
             </div>
 
-            {/* Pontos Finais */}
             <div className="text-right">
               <div className="text-3xl font-black text-brand-600 leading-none">
                 {user.total_points}
