@@ -17,6 +17,9 @@ import {
   BookOpen,
 } from "lucide-react";
 
+// Importando a logo da pasta images
+import logo from "./images/logo-dellut-removebg-preview.png";
+
 function App() {
   const [session, setSession] = useState(null);
   const [matches, setMatches] = useState([]);
@@ -24,8 +27,6 @@ function App() {
   const [matchFilter, setMatchFilter] = useState("all");
   const [hasProfile, setHasProfile] = useState(true);
   const [tempName, setTempName] = useState("");
-
-  // NOVO: Estado para guardar o status do pagamento
   const [paymentStatus, setPaymentStatus] = useState("pending");
 
   const ADMIN_EMAIL = "guilherme@dellut.com.br";
@@ -50,9 +51,7 @@ function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // NOVO: Verifica o Perfil e o Pagamento ao mesmo tempo
   async function checkUserData(currentSession) {
-    // 1. Verifica o Perfil (Nome)
     const { data: profile } = await supabase
       .from("profiles")
       .select("name")
@@ -61,7 +60,6 @@ function App() {
     if (!profile) setHasProfile(false);
     else setHasProfile(true);
 
-    // 2. Verifica o Pagamento
     const { data: payment } = await supabase
       .from("payments")
       .select("status")
@@ -135,10 +133,13 @@ function App() {
         </div>
       )}
 
+      {/* HEADER MINIMALISTA */}
       <header className="bg-white shadow-sm px-4 py-4 flex justify-between items-center sticky top-0 z-10">
-        <h1 className="text-xl font-bold text-gray-800">
-          DELLUT <span className="text-brand-500 text-sm">BOLÃO</span>
-        </h1>
+        <div className="flex items-center gap-3">
+          <img src={logo} alt="Logo" className="h-8 w-auto object-contain" />
+          <h1 className="text-xl font-bold text-gray-800">BOLÃO</h1>
+        </div>
+
         <div className="flex items-center gap-4">
           {session?.user?.email === ADMIN_EMAIL && (
             <button
@@ -158,79 +159,86 @@ function App() {
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto p-4">
-        {/* Aviso global se estiver pendente */}
-        {paymentStatus !== "paid" && view !== "rules" && view !== "admin" && (
-          <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg mb-6 shadow-sm">
-            <p className="text-red-700 text-sm font-bold">
-              ⚠️ O seu pagamento está Pendente!
-            </p>
-            <p className="text-red-600 text-xs mt-1">
-              Os seus palpites estão bloqueados. Vá ao menu "Regras" para ver a
-              chave PIX da inscrição.
-            </p>
-          </div>
-        )}
-
-        {view === "matches" && (
-          <>
-            <div className="mb-6 flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
-              <div className="text-gray-400 mr-2">
-                <Filter size={20} />
-              </div>
-              <button
-                onClick={() => setMatchFilter("all")}
-                className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-colors ${matchFilter === "all" ? "bg-brand-600 text-white" : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"}`}
-              >
-                Todos os Jogos
-              </button>
-              <button
-                onClick={() => setMatchFilter("upcoming")}
-                className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-colors ${matchFilter === "upcoming" ? "bg-brand-600 text-white" : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"}`}
-              >
-                Próximos
-              </button>
-              <button
-                onClick={() => setMatchFilter("finished")}
-                className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-colors ${matchFilter === "finished" ? "bg-brand-600 text-white" : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"}`}
-              >
-                Encerrados
-              </button>
-              <button
-                onClick={() => setMatchFilter("knockout")}
-                className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-colors ${matchFilter === "knockout" ? "bg-orange-500 text-white" : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"}`}
-              >
-                🔥 Mata-Mata
-              </button>
+      <main className="max-w-5xl mx-auto p-4 flex flex-col min-h-[80vh]">
+        <div className="flex-grow">
+          {paymentStatus !== "paid" && view !== "rules" && view !== "admin" && (
+            <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg mb-6 shadow-sm">
+              <p className="text-red-700 text-sm font-bold">
+                ⚠️ O seu pagamento está Pendente!
+              </p>
+              <p className="text-red-600 text-xs mt-1">
+                Os seus palpites estão bloqueados. Vá ao menu "Regras" para ver
+                a chave PIX da inscrição.
+              </p>
             </div>
-            {filteredMatches.length === 0 ? (
-              <div className="text-center p-10 text-gray-400 bg-white rounded-xl border border-gray-200 border-dashed">
-                <Gamepad2 size={48} className="mx-auto mb-4 opacity-20" />
-                <p>Nenhum jogo encontrado.</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {/* NOVO: Passando o paymentStatus para o MatchCard */}
-                {filteredMatches.map((match) => (
-                  <MatchCard
-                    key={match.id}
-                    match={match}
-                    userId={session.user.id}
-                    paymentStatus={paymentStatus}
-                  />
-                ))}
-              </div>
-            )}
-          </>
-        )}
+          )}
 
-        {view === "ranking" && <Ranking />}
-        {/* NOVO: Passando o paymentStatus para o Pódio */}
-        {view === "champions" && (
-          <ChampionBets session={session} paymentStatus={paymentStatus} />
-        )}
-        {view === "admin" && <Admin session={session} />}
-        {view === "rules" && <Rules />}
+          {view === "matches" && (
+            <>
+              <div className="mb-6 flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                <div className="text-gray-400 mr-2">
+                  <Filter size={20} />
+                </div>
+                <button
+                  onClick={() => setMatchFilter("all")}
+                  className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-colors ${matchFilter === "all" ? "bg-brand-600 text-white" : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"}`}
+                >
+                  Todos os Jogos
+                </button>
+                <button
+                  onClick={() => setMatchFilter("upcoming")}
+                  className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-colors ${matchFilter === "upcoming" ? "bg-brand-600 text-white" : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"}`}
+                >
+                  Próximos
+                </button>
+                <button
+                  onClick={() => setMatchFilter("finished")}
+                  className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-colors ${matchFilter === "finished" ? "bg-brand-600 text-white" : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"}`}
+                >
+                  Encerrados
+                </button>
+                <button
+                  onClick={() => setMatchFilter("knockout")}
+                  className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-colors ${matchFilter === "knockout" ? "bg-orange-500 text-white" : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"}`}
+                >
+                  🔥 Mata-Mata
+                </button>
+              </div>
+              {filteredMatches.length === 0 ? (
+                <div className="text-center p-10 text-gray-400 bg-white rounded-xl border border-gray-200 border-dashed">
+                  <Gamepad2 size={48} className="mx-auto mb-4 opacity-20" />
+                  <p>Nenhum jogo encontrado.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filteredMatches.map((match) => (
+                    <MatchCard
+                      key={match.id}
+                      match={match}
+                      userId={session.user.id}
+                      paymentStatus={paymentStatus}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+
+          {view === "ranking" && <Ranking />}
+          {view === "champions" && (
+            <ChampionBets session={session} paymentStatus={paymentStatus} />
+          )}
+          {view === "admin" && <Admin session={session} />}
+          {view === "rules" && <Rules />}
+        </div>
+
+        {/* NOVO: Copyright Guilherme Padial */}
+        <div className="mt-12 mb-4 text-center">
+          <p className="text-xs text-gray-400">
+            &copy; {new Date().getFullYear()} Bolão Dellut. Criado e administrado por{" "}
+            <span className="font-bold text-gray-500">Guilherme Padial</span>.
+          </p>
+        </div>
       </main>
 
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-between px-2 py-3 md:justify-around md:pb-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-20">
