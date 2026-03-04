@@ -11,13 +11,17 @@ import {
   DollarSign,
   CheckCircle,
   XCircle,
+  RefreshCw,
+  UploadCloud,
 } from "lucide-react";
 
 export default function Admin({ session }) {
   const [matches, setMatches] = useState([]);
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [usersFinance, setUsersFinance] = useState([]);
 
+  // ESTADOS PARA CRIAÇÃO MANUAL
   const [newMatch, setNewMatch] = useState({
     home: "",
     away: "",
@@ -30,10 +34,48 @@ export default function Admin({ session }) {
     third_place: "",
   });
 
-  // NOVO: Estado para a lista de usuários e pagamentos
-  const [usersFinance, setUsersFinance] = useState([]);
+  // ESTADO PARA A SINCRONIZAÇÃO AUTOMÁTICA
+  const [syncing, setSyncing] = useState(false);
+  const [apiKey, setApiKey] = useState("");
 
   const ADMIN_EMAIL = "guilherme@dellut.com.br";
+
+  // DICIONÁRIO DE TRADUÇÃO (API Inglês -> Banco Português)
+  const teamDictionary = {
+    Brazil: "Brasil",
+    Argentina: "Argentina",
+    France: "França",
+    Germany: "Alemanha",
+    Spain: "Espanha",
+    England: "Inglaterra",
+    Portugal: "Portugal",
+    Netherlands: "Holanda",
+    Italy: "Itália",
+    Belgium: "Bélgica",
+    Uruguay: "Uruguai",
+    Colombia: "Colômbia",
+    Croatia: "Croácia",
+    "United States": "Estados Unidos",
+    Mexico: "México",
+    Japan: "Japão",
+    Morocco: "Marrocos",
+    Senegal: "Senegal",
+    Switzerland: "Suíça",
+    "South Korea": "Coreia do Sul",
+    Ecuador: "Equador",
+    Canada: "Canadá",
+    Cameroon: "Camarões",
+    Ghana: "Gana",
+    Serbia: "Sérvia",
+    Poland: "Polônia",
+    Australia: "Austrália",
+    Iran: "Irã",
+    "Saudi Arabia": "Arábia Saudita",
+    "Costa Rica": "Costa Rica",
+    Wales: "País de Gales",
+    Tunisia: "Tunísia",
+    Qatar: "Catar",
+  };
 
   useEffect(() => {
     if (session?.user?.email === ADMIN_EMAIL) {
@@ -45,24 +87,19 @@ export default function Admin({ session }) {
 
   async function fetchData() {
     setLoading(true);
-
     const { data: matchesData } = await supabase
       .from("matches")
       .select(`*, teams_home:home_team_id(name), teams_away:away_team_id(name)`)
       .order("match_time", { ascending: false });
-
     const { data: teamsData } = await supabase
       .from("teams")
       .select("*")
       .order("name");
-
     const { data: settingsData } = await supabase
       .from("tournament_settings")
       .select("*")
       .eq("id", 1)
       .maybeSingle();
-
-    // NOVO: Busca a lista de usuários e o status de pagamento
     const { data: financeData } = await supabase.rpc(
       "get_admin_users_with_payments",
     );
@@ -78,52 +115,134 @@ export default function Admin({ session }) {
         third_place: settingsData.third_place_id || "",
       });
     }
-
     setLoading(false);
   }
 
-  // --- FUNÇÕES FINANCEIRAS ---
-  async function handleTogglePayment(userId, currentStatus) {
-    const newStatus = currentStatus === "paid" ? "pending" : "paid";
+  async function handleSyncWithAPI() {
+    if (!apiKey)
+      return alert(
+        "Por favor, cole sua API Key do football-data.org no campo abaixo!",
+      );
 
-    const { error } = await supabase.from("payments").upsert({
-      user_id: userId,
-      status: newStatus,
-      updated_at: new Date(),
-    });
+    setSyncing(true);
+    try {
+      const response = await fetch(
+        "https://api.football-data.org/v4/competitions/2000/matches",
+        {
+          headers: { "X-Auth-Token": apiKey },
+        },
+      );
 
-    if (error) alert("Erro ao atualizar pagamento: " + error.message);
-    else fetchData(); // Recarrega a lista para mostrar a cor atualizada
+      const data = await response.json();
+
+      if (data.errorCode) throw new Error(data.message);
+      if (!data.matches) throw new Error("Nenhum jogo encontrado na API.");
+
+      let updatedCount = 0;
+      let createdCount = 0;
+
+      for (const apiMatch of data.matches) {
+        const homeNamePT =
+          teamDictionary[apiMatch.homeTeam.name] || apiMatch.homeTeam.name;
+        const awayNamePT =
+          teamDictionary[apiMatch.awayTeam.name] || apiMatch.awayTeam.name;
+
+        const homeTeam = teams.find(
+          (t) => t.name.toLowerCase() === homeNamePT.toLowerCase(),
+        );
+        const awayTeam = teams.find(
+          (t) => t.name.toLowerCase() === awayNamePT.toLowerCase(),
+        );
+
+        if (homeTeam && awayTeam) {
+          const existingMatch = matches.find(
+            (m) =>
+              (m.home_team_id === homeTeam.id &&
+                m.away_team_id === awayTeam.id) ||
+              (m.home_team_id === awayTeam.id &&
+                m.away_team_id === homeTeam.id),
+          );
+
+          const status =
+            apiMatch.status === "FINISHED" ? "finished" : "scheduled";
+          const homeScore = apiMatch.score.fullTime.home;
+          const awayScore = apiMatch.score.fullTime.away;
+          const matchTime = apiMatch.utcDate;
+
+          const matchData = {
+            home_team_id: homeTeam.id,
+            away_team_id: awayTeam.id,
+            match_time: matchTime,
+            status: status,
+            home_score: homeScore,
+            away_score: awayScore,
+            phase: apiMatch.stage === "GROUP_STAGE" ? "groups" : "knockout",
+          };
+
+          if (existingMatch) {
+            if (
+              existingMatch.status !== status ||
+              existingMatch.home_score !== homeScore
+            ) {
+              await supabase
+                .from("matches")
+                .update(matchData)
+                .eq("id", existingMatch.id);
+              updatedCount++;
+            }
+          } else {
+            await supabase.from("matches").insert(matchData);
+            createdCount++;
+          }
+        }
+      }
+
+      alert(
+        `Sincronização concluída!\nJogos Criados: ${createdCount}\nJogos Atualizados: ${updatedCount}`,
+      );
+      fetchData();
+    } catch (error) {
+      alert("Erro na sincronização: " + error.message);
+    } finally {
+      setSyncing(false);
+    }
   }
 
-  // --- FUNÇÕES DE JOGOS E RESULTADO (Mantidas) ---
+  async function handleTogglePayment(userId, currentStatus) {
+    const newStatus = currentStatus === "paid" ? "pending" : "paid";
+    const { error } = await supabase
+      .from("payments")
+      .upsert({ user_id: userId, status: newStatus, updated_at: new Date() });
+    if (error) alert("Erro: " + error.message);
+    else fetchData();
+  }
+
+  // --- AQUI ESTÁ A CORREÇÃO DO FUSO HORÁRIO ---
   async function handleCreateMatch(e) {
     e.preventDefault();
     if (!newMatch.home || !newMatch.away || !newMatch.time)
-      return alert("Preencha os times e a data!");
+      return alert("Preencha tudo!");
+
+    // Converte a data local do Brasil para o formato Universal (UTC) antes de salvar no banco
+    const dataCorrigida = new Date(newMatch.time).toISOString();
 
     const { error } = await supabase.from("matches").insert({
       home_team_id: newMatch.home,
       away_team_id: newMatch.away,
-      match_time: newMatch.time,
+      match_time: dataCorrigida, // <-- Salvando a data corrigida
       phase: newMatch.phase,
       status: "scheduled",
     });
 
-    if (error) alert("Erro ao criar: " + error.message);
+    if (error) alert("Erro: " + error.message);
     else {
-      alert("Jogo criado com sucesso!");
+      alert("Criado!");
       fetchData();
     }
   }
 
   async function handleUpdateScore(matchId, homeScore, awayScore) {
-    if (
-      !confirm(
-        "Confirmar resultado final? Isso vai calcular os pontos de todos.",
-      )
-    )
-      return;
+    if (!confirm("Confirmar resultado final?")) return;
     const { error } = await supabase
       .from("matches")
       .update({
@@ -134,66 +253,47 @@ export default function Admin({ session }) {
       .eq("id", matchId);
     if (error) alert("Erro: " + error.message);
     else {
-      alert("Placar atualizado e pontos calculados!");
+      alert("Atualizado!");
       fetchData();
     }
   }
 
   async function handleDeleteMatch(id) {
-    if (
-      !confirm(
-        "Tem certeza que deseja apagar este jogo? Todos os palpites dele serão apagados!",
-      )
-    )
-      return;
+    if (!confirm("Apagar jogo?")) return;
     const { error } = await supabase.from("matches").delete().eq("id", id);
-    if (error) alert("Erro ao apagar: " + error.message);
+    if (error) alert("Erro: " + error.message);
     else fetchData();
   }
 
   async function handleSaveTournamentResult() {
-    if (
-      !confirm(
-        "ATENÇÃO: Isso vai definir os campeões e distribuir MUITOS pontos no Ranking. Tem certeza?",
-      )
-    )
-      return;
+    if (!confirm("Salvar resultado da Copa?")) return;
     const { error } = await supabase.from("tournament_settings").upsert({
       id: 1,
       champion_id: finalResult.champion || null,
       runner_up_id: finalResult.runner_up || null,
       third_place_id: finalResult.third_place || null,
     });
-    if (error) alert("Erro ao salvar resultado final: " + error.message);
-    else alert("🏆 Resultado da Copa salvo! O Ranking foi atualizado.");
+    if (error) alert("Erro: " + error.message);
+    else alert("🏆 Salvo!");
   }
 
   if (loading)
     return (
       <div className="p-10 text-center animate-pulse">Carregando painel...</div>
     );
-
-  if (session?.user?.email !== ADMIN_EMAIL) {
+  if (session?.user?.email !== ADMIN_EMAIL)
     return (
-      <div className="max-w-md mx-auto mt-10 p-6 bg-red-50 border border-red-200 rounded-xl text-center shadow-lg">
-        <ShieldAlert size={48} className="mx-auto text-red-600 mb-4" />
-        <h2 className="text-xl font-bold text-red-700 mb-2">Acesso Negado</h2>
-        <p className="text-gray-600 mb-6">
-          Você não tem permissão de administrador.
-        </p>
+      <div className="text-center p-10 text-red-500 font-bold">
+        Acesso Negado
       </div>
     );
-  }
 
-  // Conta quantos já pagaram para o resumo
   const paidCount = usersFinance.filter(
     (u) => u.payment_status === "paid",
   ).length;
-  const totalCount = usersFinance.length;
 
   return (
     <div className="max-w-5xl mx-auto p-4 bg-white rounded-xl shadow-md mt-6 mb-24">
-      {/* Cabeçalho */}
       <div className="flex items-center gap-2 mb-8 border-b pb-4">
         <div className="bg-gray-800 p-2 rounded-lg text-white">
           <ShieldAlert size={24} />
@@ -202,287 +302,229 @@ export default function Admin({ session }) {
           <h2 className="text-2xl font-bold text-gray-800">
             Painel Administrativo
           </h2>
-          <p className="text-sm text-gray-500">
-            Gerencie jogos, pagamentos e resultados finais
-          </p>
+          <p className="text-sm text-gray-500">Gerencie tudo por aqui</p>
         </div>
       </div>
 
-      {/* --- NOVA SEÇÃO: CONTROLE FINANCEIRO --- */}
+      <div className="bg-indigo-50 p-6 rounded-xl mb-10 border border-indigo-200 shadow-sm">
+        <h3 className="font-black text-indigo-800 text-lg flex items-center gap-2 mb-2">
+          <UploadCloud size={20} /> AUTOMAÇÃO DE JOGOS
+        </h3>
+        <p className="text-xs text-indigo-700 mb-4">
+          Não cadastre na mão! Cole sua chave da{" "}
+          <strong>football-data.org</strong> abaixo para importar jogos e
+          atualizar placares automaticamente.
+        </p>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            placeholder="Cole sua API Key aqui (ex: a1b2c3d4...)"
+            className="flex-1 p-2 border border-indigo-300 rounded text-sm"
+            value={apiKey}
+            onChange={(e) => setApiKey(e.target.value)}
+          />
+          <button
+            onClick={handleSyncWithAPI}
+            disabled={syncing}
+            className="bg-indigo-600 text-white px-4 py-2 rounded font-bold hover:bg-indigo-700 transition flex items-center gap-2 disabled:opacity-50"
+          >
+            {syncing ? (
+              <RefreshCw className="animate-spin" size={18} />
+            ) : (
+              <RefreshCw size={18} />
+            )}
+            {syncing ? "Buscando..." : "Sincronizar Agora"}
+          </button>
+        </div>
+      </div>
+
       <div className="bg-blue-50 p-6 rounded-xl mb-10 border border-blue-200 shadow-sm">
         <div className="flex justify-between items-center mb-4">
           <h3 className="font-black text-blue-800 text-lg flex items-center gap-2">
-            <DollarSign size={20} /> CONTROLE FINANCEIRO
+            <DollarSign size={20} /> FINANCEIRO
           </h3>
-          <div className="bg-white px-3 py-1 rounded-full text-sm font-bold text-blue-700 border border-blue-200 shadow-sm">
-            Caixa: {paidCount} / {totalCount} pagaram (R$ {paidCount * 60},00)
+          <div className="bg-white px-3 py-1 rounded-full text-sm font-bold text-blue-700 border border-blue-200">
+            Caixa: R$ {paidCount * 60},00
           </div>
         </div>
-
-        <p className="text-xs text-blue-700 mb-4">
-          Clique no botão para marcar se o usuário já fez o Pix da inscrição.
-        </p>
-
-        <div className="bg-white rounded-lg border border-blue-100 overflow-hidden">
-          {usersFinance.map((user, index) => (
+        <div className="bg-white rounded-lg border border-blue-100 overflow-hidden max-h-60 overflow-y-auto">
+          {usersFinance.map((user, i) => (
             <div
               key={user.user_id}
-              className={`flex items-center justify-between p-3 border-b border-blue-50 hover:bg-gray-50 transition ${index % 2 === 0 ? "bg-white" : "bg-blue-50/30"}`}
+              className={`flex justify-between p-3 border-b ${i % 2 === 0 ? "bg-white" : "bg-blue-50/30"}`}
             >
-              <div className="font-medium text-gray-700 text-sm">
-                {user.email}
-              </div>
-
+              <span className="text-sm text-gray-700">{user.email}</span>
               <button
                 onClick={() =>
                   handleTogglePayment(user.user_id, user.payment_status)
                 }
-                className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold transition shadow-sm ${
-                  user.payment_status === "paid"
-                    ? "bg-green-100 text-green-700 border border-green-300 hover:bg-green-200"
-                    : "bg-red-50 text-red-600 border border-red-200 hover:bg-red-100"
-                }`}
+                className={`px-2 py-0.5 rounded text-[10px] font-bold ${user.payment_status === "paid" ? "bg-green-100 text-green-700" : "bg-red-50 text-red-600"}`}
               >
-                {user.payment_status === "paid" ? (
-                  <>
-                    <CheckCircle size={14} /> PAGO
-                  </>
-                ) : (
-                  <>
-                    <XCircle size={14} /> PENDENTE
-                  </>
-                )}
+                {user.payment_status === "paid" ? "PAGO" : "PENDENTE"}
               </button>
             </div>
           ))}
-          {usersFinance.length === 0 && (
-            <div className="p-4 text-center text-sm text-gray-400">
-              Nenhum usuário cadastrado.
-            </div>
-          )}
         </div>
       </div>
 
-      <hr className="my-8 border-gray-200" />
-
-      {/* --- SEÇÃO: DEFINIÇÃO DO PÓDIO --- */}
-      <div className="bg-gradient-to-r from-yellow-50 to-orange-50 p-6 rounded-xl mb-10 border border-yellow-200 shadow-sm">
-        <h3 className="font-black text-yellow-800 text-lg mb-4 flex items-center gap-2">
-          <Trophy size={20} /> RESULTADO FINAL DA COPA
+      <div className="bg-yellow-50 p-6 rounded-xl mb-10 border border-yellow-200">
+        <h3 className="font-bold text-yellow-800 mb-4 flex gap-2">
+          <Trophy size={20} /> RESULTADO FINAL
         </h3>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-          <div>
-            <label className="text-xs font-bold text-yellow-600 uppercase mb-1 block flex items-center gap-1">
-              <Trophy size={12} /> Campeão (1º)
-            </label>
-            <select
-              className="w-full p-2 border border-yellow-300 rounded bg-white font-bold"
-              value={finalResult.champion}
-              onChange={(e) =>
-                setFinalResult({ ...finalResult, champion: e.target.value })
-              }
-            >
-              <option value="">Indefinido</option>
-              {teams.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="text-xs font-bold text-gray-500 uppercase mb-1 block flex items-center gap-1">
-              <Medal size={12} /> Vice-Campeão (2º)
-            </label>
-            <select
-              className="w-full p-2 border border-gray-300 rounded bg-white font-bold"
-              value={finalResult.runner_up}
-              onChange={(e) =>
-                setFinalResult({ ...finalResult, runner_up: e.target.value })
-              }
-            >
-              <option value="">Indefinido</option>
-              {teams.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="text-xs font-bold text-orange-600 uppercase mb-1 block flex items-center gap-1">
-              <Award size={12} /> 3º Lugar
-            </label>
-            <select
-              className="w-full p-2 border border-orange-300 rounded bg-white font-bold"
-              value={finalResult.third_place}
-              onChange={(e) =>
-                setFinalResult({ ...finalResult, third_place: e.target.value })
-              }
-            >
-              <option value="">Indefinido</option>
-              {teams.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-          </div>
+        <div className="grid grid-cols-3 gap-2 mb-4">
+          <select
+            className="p-2 border rounded text-xs"
+            value={finalResult.champion}
+            onChange={(e) =>
+              setFinalResult({ ...finalResult, champion: e.target.value })
+            }
+          >
+            <option value="">Campeão</option>
+            {teams.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+          <select
+            className="p-2 border rounded text-xs"
+            value={finalResult.runner_up}
+            onChange={(e) =>
+              setFinalResult({ ...finalResult, runner_up: e.target.value })
+            }
+          >
+            <option value="">Vice</option>
+            {teams.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+          <select
+            className="p-2 border rounded text-xs"
+            value={finalResult.third_place}
+            onChange={(e) =>
+              setFinalResult({ ...finalResult, third_place: e.target.value })
+            }
+          >
+            <option value="">3º Lugar</option>
+            {teams.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
         </div>
-
         <button
           onClick={handleSaveTournamentResult}
-          className="bg-yellow-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-yellow-700 transition w-full md:w-auto shadow-sm flex items-center justify-center gap-2"
+          className="bg-yellow-600 text-white w-full py-2 rounded font-bold text-sm"
         >
-          <Save size={18} /> Salvar Resultado da Copa
+          Salvar Pódio
         </button>
       </div>
 
-      <hr className="my-8 border-gray-200" />
+      <h3 className="font-bold mb-4 text-gray-700 pl-2 border-l-4 border-brand-500">
+        Gerenciar Jogos
+      </h3>
 
-      {/* --- SEÇÃO: GERENCIAR JOGOS --- */}
-      <div className="bg-gray-50 p-6 rounded-xl mb-8 border border-gray-100 shadow-inner">
-        <h3 className="font-bold mb-4 text-gray-700 flex items-center gap-2">
-          <CalendarPlus size={20} /> Novo Jogo
-        </h3>
+      <div className="bg-gray-50 p-4 rounded-lg mb-6 border border-gray-200">
+        <p className="text-xs font-bold text-gray-400 uppercase mb-2">
+          Criação Manual
+        </p>
         <form
           onSubmit={handleCreateMatch}
-          className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end"
+          className="grid grid-cols-2 md:grid-cols-5 gap-2 items-end"
         >
-          <div>
-            <label className="text-xs font-bold text-gray-500 uppercase">
-              Fase
-            </label>
-            <select
-              className="w-full p-2 border border-brand-300 rounded bg-brand-50 font-bold text-brand-700 text-sm"
-              onChange={(e) =>
-                setNewMatch({ ...newMatch, phase: e.target.value })
-              }
-              value={newMatch.phase}
-            >
-              <option value="groups">Grupos</option>
-              <option value="knockout">Mata-Mata</option>
-            </select>
-          </div>
-          <div>
-            <label className="text-xs font-bold text-gray-500 uppercase">
-              Casa
-            </label>
-            <select
-              className="w-full p-2 border rounded bg-white text-sm"
-              onChange={(e) =>
-                setNewMatch({ ...newMatch, home: e.target.value })
-              }
-            >
-              <option value="">Selecionar...</option>
-              {teams.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="text-xs font-bold text-gray-500 uppercase">
-              Visitante
-            </label>
-            <select
-              className="w-full p-2 border rounded bg-white text-sm"
-              onChange={(e) =>
-                setNewMatch({ ...newMatch, away: e.target.value })
-              }
-            >
-              <option value="">Selecionar...</option>
-              {teams.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="text-xs font-bold text-gray-500 uppercase">
-              Data
-            </label>
-            <input
-              type="datetime-local"
-              className="w-full p-2 border rounded bg-white text-xs"
-              onChange={(e) =>
-                setNewMatch({ ...newMatch, time: e.target.value })
-              }
-            />
-          </div>
+          <select
+            className="p-2 border rounded text-xs"
+            onChange={(e) =>
+              setNewMatch({ ...newMatch, phase: e.target.value })
+            }
+            value={newMatch.phase}
+          >
+            <option value="groups">Grupos</option>
+            <option value="knockout">Mata-Mata</option>
+          </select>
+          <select
+            className="p-2 border rounded text-xs"
+            onChange={(e) => setNewMatch({ ...newMatch, home: e.target.value })}
+          >
+            <option value="">Casa...</option>
+            {teams.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+          <select
+            className="p-2 border rounded text-xs"
+            onChange={(e) => setNewMatch({ ...newMatch, away: e.target.value })}
+          >
+            <option value="">Visitante...</option>
+            {teams.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+          <input
+            type="datetime-local"
+            className="p-2 border rounded text-xs"
+            onChange={(e) => setNewMatch({ ...newMatch, time: e.target.value })}
+          />
           <button
             type="submit"
-            className="bg-brand-600 text-white px-4 py-2 rounded font-bold hover:bg-brand-700 transition shadow-md text-sm h-[38px]"
+            className="bg-brand-600 text-white p-2 rounded text-xs font-bold"
           >
             Criar
           </button>
         </form>
       </div>
 
-      <h3 className="font-bold mb-4 text-gray-700 pl-2 border-l-4 border-brand-500">
-        Lista de Jogos
-      </h3>
-      <div className="space-y-3">
+      <div className="space-y-2">
         {matches.map((match) => (
           <div
             key={match.id}
-            className="flex flex-col md:flex-row items-center justify-between border border-gray-200 p-4 rounded-lg hover:shadow-md transition bg-white"
+            className="flex items-center justify-between border p-3 rounded bg-white shadow-sm"
           >
-            <div className="flex-1 mb-4 md:mb-0 text-center md:text-left">
-              <span
-                className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider ${match.phase === "knockout" ? "bg-orange-100 text-orange-700" : "bg-blue-100 text-blue-700"}`}
-              >
-                {match.phase === "knockout" ? "🔥 Mata-Mata" : "📊 Grupos"}
+            <div className="text-xs">
+              <span className="font-bold text-gray-700">
+                {match.teams_home?.name} x {match.teams_away?.name}
               </span>
-              <div className="flex items-center justify-center md:justify-start gap-2 text-lg font-bold text-gray-800 mt-2">
-                <span>{match.teams_home?.name}</span>
-                <span className="text-gray-300 text-sm">vs</span>
-                <span>{match.teams_away?.name}</span>
-              </div>
-              <div className="text-xs text-gray-400 mt-1 uppercase tracking-wide">
-                {new Date(match.match_time).toLocaleString("pt-BR")} •{" "}
-                {match.status === "finished" ? "Encerrado" : "Agendado"}
+              <div className="text-gray-400">
+                {new Date(match.match_time).toLocaleString("pt-BR")}
               </div>
             </div>
-
-            <div className="flex items-center gap-3 bg-gray-50 p-2 rounded-lg justify-center">
+            <div className="flex gap-2">
               <input
                 type="number"
-                placeholder={match.home_score ?? "-"}
-                className="w-12 h-10 p-1 border border-gray-300 rounded text-center font-bold"
-                id={`home-${match.id}`}
+                className="w-10 border text-center font-bold"
                 defaultValue={match.home_score}
+                id={`h-${match.id}`}
               />
-              <span className="text-gray-400 font-bold">:</span>
               <input
                 type="number"
-                placeholder={match.away_score ?? "-"}
-                className="w-12 h-10 p-1 border border-gray-300 rounded text-center font-bold"
-                id={`away-${match.id}`}
+                className="w-10 border text-center font-bold"
                 defaultValue={match.away_score}
+                id={`a-${match.id}`}
               />
-
               <button
-                onClick={() => {
-                  const h = document.getElementById(`home-${match.id}`).value;
-                  const a = document.getElementById(`away-${match.id}`).value;
-                  if (h !== "" && a !== "") handleUpdateScore(match.id, h, a);
-                }}
-                className="bg-green-600 text-white p-2 rounded hover:bg-green-700 transition"
-                title="Salvar Placar"
+                onClick={() =>
+                  handleUpdateScore(
+                    match.id,
+                    document.getElementById(`h-${match.id}`).value,
+                    document.getElementById(`a-${match.id}`).value,
+                  )
+                }
+                className="bg-green-100 text-green-700 p-2 rounded hover:bg-green-200"
               >
-                <Save size={18} />
+                <Save size={16} />
               </button>
-              <div className="w-px h-8 bg-gray-300 mx-1"></div>
               <button
                 onClick={() => handleDeleteMatch(match.id)}
-                className="text-red-400 hover:text-red-600 hover:bg-red-50 p-2 rounded transition"
-                title="Apagar Jogo"
+                className="bg-red-50 text-red-400 p-2 rounded hover:bg-red-100"
               >
-                <Trash2 size={18} />
+                <Trash2 size={16} />
               </button>
             </div>
           </div>
