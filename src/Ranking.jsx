@@ -1,19 +1,24 @@
 import { useState, useEffect } from "react";
 import { supabase } from "./supabaseClient";
-import { Trophy, Target, Medal } from "lucide-react";
+import { Trophy, Target, Medal, Loader2 } from "lucide-react"; // Importe Loader2
+import { useToast } from "./ToastContext"; // Importe o hook useToast
 
 export default function Ranking() {
   const [ranking, setRanking] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const showToast = useToast(); // Use o hook useToast
+
   useEffect(() => {
     async function fetchRanking() {
+      setLoading(true); // Garante que o loading seja true ao iniciar a busca
       const { data, error } = await supabase.from("leaderboard").select("*");
 
       if (error) {
         console.error("Erro ao buscar ranking:", error);
         setError(error.message);
+        showToast("Erro ao carregar o ranking: " + error.message, "error"); // MODIFICADO: Usar Toast
       } else {
         // CÉREBRO DE ORDENAÇÃO E DESEMPATE 🧠
         const dadosOrdenados = (data || []).sort((a, b) => {
@@ -40,8 +45,12 @@ export default function Ranking() {
 
   if (loading)
     return (
-      <div className="text-center p-10 text-gray-500 font-bold animate-pulse">
-        Calculando pontos... ⏳
+      <div className="text-center p-10 text-gray-500 font-bold flex flex-col items-center justify-center">
+        {" "}
+        {/* MODIFICADO */}
+        <Loader2 className="animate-spin text-brand-500 mb-4" size={32} />{" "}
+        {/* NOVO: Spinner */}
+        <span>Calculando pontos... ⏳</span>
       </div>
     );
 

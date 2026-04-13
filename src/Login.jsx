@@ -1,13 +1,25 @@
 import { useState } from "react";
 import { supabase } from "./supabaseClient";
-import { Mail, Lock, Loader2, ArrowRight, ArrowLeft } from "lucide-react";
+import {
+  Mail,
+  Lock,
+  Loader2,
+  ArrowRight,
+  ArrowLeft,
+  Eye,
+  EyeOff,
+} from "lucide-react"; // Importe Eye e EyeOff
+import { useToast } from "./ToastContext";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
-  const [isResetMode, setIsResetMode] = useState(false); // NOVO: Controla a tela de Esqueci a Senha
+  const [isResetMode, setIsResetMode] = useState(false);
+  const [showPassword, setShowPassword] = useState(false); // NOVO: Estado para controlar a visibilidade da senha
+
+  const showToast = useToast();
 
   const handleAuth = async (e) => {
     e.preventDefault();
@@ -21,7 +33,8 @@ export default function Login() {
         password,
       });
       error = signUpError;
-      if (!error) alert("Conta criada com sucesso! Pode fazer o login.");
+      if (!error)
+        showToast("Conta criada com sucesso! Pode fazer o login.", "success");
     } else {
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email,
@@ -31,17 +44,21 @@ export default function Login() {
     }
 
     if (error) {
-      alert(error.message);
+      showToast(error.message, "error");
     }
 
     setLoading(false);
   };
 
-  // NOVO: Função para recuperar a senha
   const handleResetPassword = async (e) => {
     e.preventDefault();
-    if (!email)
-      return alert("Por favor, digite o seu e-mail corporativo primeiro!");
+    if (!email) {
+      showToast(
+        "Por favor, digite o seu e-mail corporativo primeiro!",
+        "warning",
+      );
+      return;
+    }
 
     setLoading(true);
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
@@ -50,10 +67,11 @@ export default function Login() {
     setLoading(false);
 
     if (error) {
-      alert("Erro ao enviar recuperação: " + error.message);
+      showToast("Erro ao enviar recuperação: " + error.message, "error");
     } else {
-      alert(
+      showToast(
         "✅ Link de recuperação enviado! Verifique a sua caixa de entrada.",
+        "info",
       );
       setIsResetMode(false);
     }
@@ -172,14 +190,27 @@ export default function Login() {
                     <Lock className="h-5 w-5 text-gray-400" />
                   </div>
                   <input
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     required
                     minLength={6}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-brand-500 focus:border-brand-500 outline-none transition"
+                    className="block w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-brand-500 focus:border-brand-500 outline-none transition"
                     placeholder="******"
                   />
+                  {/* NOVO: Botão para mostrar/esconder senha */}
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none"
+                    title={showPassword ? "Esconder senha" : "Mostrar senha"}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-5 w-5" />
+                    ) : (
+                      <Eye className="h-5 w-5" />
+                    )}
+                  </button>
                 </div>
                 {isSignUp && (
                   <p className="text-xs text-gray-500 mt-1">

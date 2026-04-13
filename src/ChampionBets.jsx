@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "./supabaseClient";
 import { Trophy, Medal, Award, Save, Lock, AlertCircle } from "lucide-react";
+import { useToast } from "./ToastContext"; // Importe o hook useToast
 
 // NOVO: Recebemos o paymentStatus
 export default function ChampionBets({ session, paymentStatus }) {
@@ -12,6 +13,8 @@ export default function ChampionBets({ session, paymentStatus }) {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  const showToast = useToast(); // Use o hook useToast
 
   const isPaymentLocked = paymentStatus !== "paid";
 
@@ -42,30 +45,40 @@ export default function ChampionBets({ session, paymentStatus }) {
 
   async function handleSave(e) {
     e.preventDefault();
-    if (isPaymentLocked)
-      return alert("Pague a inscrição do bolão para registar o seu pódio!");
-    if (!bet.champion || !bet.runner_up || !bet.third_place)
-      return alert("Por favor, selecione as três equipas!");
+    if (isPaymentLocked) {
+      showToast(
+        "Pague a inscrição do bolão para registar o seu pódio!",
+        "warning",
+      );
+      return;
+    }
+    if (!bet.champion || !bet.runner_up || !bet.third_place) {
+      showToast("Por favor, selecione as três equipas!", "warning");
+      return;
+    }
     if (
       bet.champion === bet.runner_up ||
       bet.champion === bet.third_place ||
       bet.runner_up === bet.third_place
-    )
-      return alert("Não pode escolher a mesma equipa mais de uma vez!");
+    ) {
+      showToast("Não pode escolher a mesma equipa mais de uma vez!", "warning");
+      return;
+    }
 
     setSaving(true);
-    const { error } = await supabase
-      .from("champion_bets")
-      .upsert({
-        user_id: session.user.id,
-        champion_id: bet.champion,
-        runner_up_id: bet.runner_up,
-        third_place_id: bet.third_place,
-      });
+    const { error } = await supabase.from("champion_bets").upsert({
+      user_id: session.user.id,
+      champion_id: bet.champion,
+      runner_up_id: bet.runner_up,
+      third_place_id: bet.third_place,
+    });
     setSaving(false);
 
-    if (error) alert("Erro ao salvar: " + error.message);
-    else alert("Pódio de Ouro salvo com sucesso! Boa sorte!");
+    if (error) {
+      showToast("Erro ao salvar: " + error.message, "error");
+    } else {
+      showToast("Pódio de Ouro salvo com sucesso! Boa sorte!", "success");
+    }
   }
 
   if (loading)

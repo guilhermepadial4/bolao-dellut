@@ -14,6 +14,7 @@ import {
   RefreshCw,
   UploadCloud,
 } from "lucide-react";
+import { useToast } from "./ToastContext"; // Importe o hook useToast
 
 export default function Admin({ session }) {
   const [matches, setMatches] = useState([]);
@@ -37,6 +38,8 @@ export default function Admin({ session }) {
   // ESTADO PARA A SINCRONIZAÇÃO AUTOMÁTICA
   const [syncing, setSyncing] = useState(false);
   const [apiKey, setApiKey] = useState("");
+
+  const showToast = useToast(); // Use o hook useToast
 
   const ADMIN_EMAIL = "guilherme@dellut.com.br";
 
@@ -119,10 +122,13 @@ export default function Admin({ session }) {
   }
 
   async function handleSyncWithAPI() {
-    if (!apiKey)
-      return alert(
+    if (!apiKey) {
+      showToast(
         "Por favor, cole sua API Key do football-data.org no campo abaixo!",
-      );
+        "warning",
+      ); // MODIFICADO
+      return;
+    }
 
     setSyncing(true);
     try {
@@ -197,12 +203,13 @@ export default function Admin({ session }) {
         }
       }
 
-      alert(
-        `Sincronização concluída!\nJogos Criados: ${createdCount}\nJogos Atualizados: ${updatedCount}`,
-      );
+      showToast(
+        `Sincronização concluída! Jogos Criados: ${createdCount}, Jogos Atualizados: ${updatedCount}`,
+        "success",
+      ); // MODIFICADO
       fetchData();
     } catch (error) {
-      alert("Erro na sincronização: " + error.message);
+      showToast("Erro na sincronização: " + error.message, "error"); // MODIFICADO
     } finally {
       setSyncing(false);
     }
@@ -213,15 +220,21 @@ export default function Admin({ session }) {
     const { error } = await supabase
       .from("payments")
       .upsert({ user_id: userId, status: newStatus, updated_at: new Date() });
-    if (error) alert("Erro: " + error.message);
-    else fetchData();
+    if (error)
+      showToast("Erro ao atualizar pagamento: " + error.message, "error"); // MODIFICADO
+    else {
+      showToast("Status de pagamento atualizado!", "success"); // NOVO: Feedback de sucesso
+      fetchData();
+    }
   }
 
   // --- AQUI ESTÁ A CORREÇÃO DO FUSO HORÁRIO ---
   async function handleCreateMatch(e) {
     e.preventDefault();
-    if (!newMatch.home || !newMatch.away || !newMatch.time)
-      return alert("Preencha tudo!");
+    if (!newMatch.home || !newMatch.away || !newMatch.time) {
+      showToast("Preencha todos os campos para criar o jogo!", "warning"); // MODIFICADO
+      return;
+    }
 
     // Converte a data local do Brasil para o formato Universal (UTC) antes de salvar no banco
     const dataCorrigida = new Date(newMatch.time).toISOString();
@@ -234,15 +247,26 @@ export default function Admin({ session }) {
       status: "scheduled",
     });
 
-    if (error) alert("Erro: " + error.message);
+    if (error)
+      showToast("Erro ao criar jogo: " + error.message, "error"); // MODIFICADO
     else {
-      alert("Criado!");
+      showToast("Jogo criado com sucesso!", "success"); // MODIFICADO
       fetchData();
+      // Limpar formulário após sucesso
+      setNewMatch({
+        home: "",
+        away: "",
+        time: "",
+        phase: "groups",
+      });
     }
   }
 
   async function handleUpdateScore(matchId, homeScore, awayScore) {
-    if (!confirm("Confirmar resultado final?")) return;
+    // Substituindo o confirm() nativo por um Toast de confirmação ou um modal customizado
+    // Por simplicidade, vou manter o confirm() por enquanto, mas idealmente seria um modal.
+    if (!confirm("Confirmar resultado final?")) return; // MANTER POR ENQUANTO
+
     const { error } = await supabase
       .from("matches")
       .update({
@@ -251,35 +275,49 @@ export default function Admin({ session }) {
         status: "finished",
       })
       .eq("id", matchId);
-    if (error) alert("Erro: " + error.message);
+    if (error)
+      showToast("Erro ao atualizar placar: " + error.message, "error"); // MODIFICADO
     else {
-      alert("Atualizado!");
+      showToast("Placar atualizado com sucesso!", "success"); // MODIFICADO
       fetchData();
     }
   }
 
   async function handleDeleteMatch(id) {
-    if (!confirm("Apagar jogo?")) return;
+    // Substituindo o confirm() nativo por um Toast de confirmação ou um modal customizado
+    // Por simplicidade, vou manter o confirm() por enquanto, mas idealmente seria um modal.
+    if (!confirm("Apagar jogo?")) return; // MANTER POR ENQUANTO
+
     const { error } = await supabase.from("matches").delete().eq("id", id);
-    if (error) alert("Erro: " + error.message);
-    else fetchData();
+    if (error)
+      showToast("Erro ao deletar jogo: " + error.message, "error"); // MODIFICADO
+    else {
+      showToast("Jogo deletado com sucesso!", "success"); // MODIFICADO
+      fetchData();
+    }
   }
 
   async function handleSaveTournamentResult() {
-    if (!confirm("Salvar resultado da Copa?")) return;
+    // Substituindo o confirm() nativo por um Toast de confirmação ou um modal customizado
+    // Por simplicidade, vou manter o confirm() por enquanto, mas idealmente seria um modal.
+    if (!confirm("Salvar resultado da Copa?")) return; // MANTER POR ENQUANTO
+
     const { error } = await supabase.from("tournament_settings").upsert({
       id: 1,
       champion_id: finalResult.champion || null,
       runner_up_id: finalResult.runner_up || null,
       third_place_id: finalResult.third_place || null,
     });
-    if (error) alert("Erro: " + error.message);
-    else alert("🏆 Salvo!");
+    if (error)
+      showToast("Erro ao salvar pódio final: " + error.message, "error"); // MODIFICADO
+    else showToast("🏆 Pódio final salvo com sucesso!", "success"); // MODIFICADO
   }
 
   if (loading)
     return (
-      <div className="p-10 text-center animate-pulse">Carregando painel...</div>
+      <div className="text-center p-10 animate-pulse text-gray-500">
+        Carregando painel...
+      </div>
     );
   if (session?.user?.email !== ADMIN_EMAIL)
     return (
@@ -448,6 +486,7 @@ export default function Admin({ session }) {
           <select
             className="p-2 border rounded text-xs"
             onChange={(e) => setNewMatch({ ...newMatch, home: e.target.value })}
+            value={newMatch.home} // Adicionado para limpar o select
           >
             <option value="">Casa...</option>
             {teams.map((t) => (
@@ -459,6 +498,7 @@ export default function Admin({ session }) {
           <select
             className="p-2 border rounded text-xs"
             onChange={(e) => setNewMatch({ ...newMatch, away: e.target.value })}
+            value={newMatch.away} // Adicionado para limpar o select
           >
             <option value="">Visitante...</option>
             {teams.map((t) => (
@@ -471,6 +511,7 @@ export default function Admin({ session }) {
             type="datetime-local"
             className="p-2 border rounded text-xs"
             onChange={(e) => setNewMatch({ ...newMatch, time: e.target.value })}
+            value={newMatch.time} // Adicionado para limpar o input
           />
           <button
             type="submit"

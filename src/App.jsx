@@ -16,6 +16,7 @@ import {
   UserCircle,
   BookOpen,
 } from "lucide-react";
+import { useToast } from "./ToastContext"; // Importe o hook useToast
 
 // Importando a logo da pasta images
 import logo from "./images/logo-dellut-removebg-preview.png";
@@ -28,6 +29,8 @@ function App() {
   const [hasProfile, setHasProfile] = useState(true);
   const [tempName, setTempName] = useState("");
   const [paymentStatus, setPaymentStatus] = useState("pending");
+
+  const showToast = useToast(); // Use o hook useToast
 
   const ADMIN_EMAIL = "guilherme@dellut.com.br";
 
@@ -74,12 +77,19 @@ function App() {
 
   async function handleSaveProfile(e) {
     e.preventDefault();
-    if (!tempName.trim()) return alert("Digite um nome válido!");
+    if (!tempName.trim()) {
+      showToast("Digite um nome válido para o seu perfil!", "warning"); // MODIFICADO
+      return;
+    }
     const { error } = await supabase
       .from("profiles")
       .insert({ id: session.user.id, name: tempName.trim() });
-    if (error) alert("Erro ao salvar nome: " + error.message);
-    else setHasProfile(true);
+    if (error) {
+      showToast("Erro ao salvar nome: " + error.message, "error"); // MODIFICADO
+    } else {
+      setHasProfile(true);
+      showToast("Nome salvo com sucesso!", "success"); // NOVO: Feedback de sucesso
+    }
   }
 
   async function fetchMatches() {
@@ -235,7 +245,8 @@ function App() {
         {/* NOVO: Copyright Guilherme Padial */}
         <div className="mt-12 mb-4 text-center">
           <p className="text-xs text-gray-400">
-            &copy; {new Date().getFullYear()} Bolão Dellut. Criado e administrado por{" "}
+            &copy; {new Date().getFullYear()} Bolão Dellut. Criado e
+            administrado por{" "}
             <span className="font-bold text-gray-500">Guilherme Padial</span>.
           </p>
         </div>
@@ -244,25 +255,25 @@ function App() {
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-between px-2 py-3 md:justify-around md:pb-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-20">
         <button
           onClick={() => setView("matches")}
-          className={`flex flex-col items-center text-[10px] md:text-xs font-medium w-full ${view === "matches" ? "text-brand-600" : "text-gray-400"}`}
+          className={`flex flex-col items-center text-xs md:text-sm font-medium w-full py-1 ${view === "matches" ? "text-brand-600" : "text-gray-400"}`}
         >
           <Gamepad2 size={22} className="mb-1" /> Jogos
         </button>
         <button
           onClick={() => setView("champions")}
-          className={`flex flex-col items-center text-[10px] md:text-xs font-medium w-full ${view === "champions" ? "text-yellow-500" : "text-gray-400"}`}
+          className={`flex flex-col items-center text-xs md:text-sm font-medium w-full py-1 ${view === "champions" ? "text-yellow-500" : "text-gray-400"}`}
         >
           <Medal size={22} className="mb-1" /> Pódio
         </button>
         <button
           onClick={() => setView("ranking")}
-          className={`flex flex-col items-center text-[10px] md:text-xs font-medium w-full ${view === "ranking" ? "text-brand-600" : "text-gray-400"}`}
+          className={`flex flex-col items-center text-xs md:text-sm font-medium w-full py-1 ${view === "ranking" ? "text-brand-600" : "text-gray-400"}`}
         >
           <Trophy size={22} className="mb-1" /> Ranking
         </button>
         <button
           onClick={() => setView("rules")}
-          className={`flex flex-col items-center text-[10px] md:text-xs font-medium w-full ${view === "rules" ? "text-brand-600" : "text-gray-400"}`}
+          className={`flex flex-col items-center text-xs md:text-sm font-medium w-full py-1 ${view === "rules" ? "text-brand-600" : "text-gray-400"}`}
         >
           <BookOpen size={22} className="mb-1" /> Regras
         </button>

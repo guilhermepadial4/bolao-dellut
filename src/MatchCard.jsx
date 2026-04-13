@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "./supabaseClient";
 import { Save, Lock, AlertCircle } from "lucide-react";
+import { useToast } from "./ToastContext"; // Importe o hook useToast
 
 // NOVO: Recebemos o paymentStatus
 export default function MatchCard({ match, userId, paymentStatus }) {
@@ -8,6 +9,8 @@ export default function MatchCard({ match, userId, paymentStatus }) {
   const [awayScore, setAwayScore] = useState("");
   const [saving, setSaving] = useState(false);
   const [points, setPoints] = useState(null);
+
+  const showToast = useToast(); // Use o hook useToast
 
   const matchDate = new Date(match.match_time);
   const now = new Date();
@@ -36,27 +39,35 @@ export default function MatchCard({ match, userId, paymentStatus }) {
   }, [match.id, userId]);
 
   async function handleSaveBet() {
-    if (isPaymentLocked)
-      return alert(
+    if (isPaymentLocked) {
+      showToast(
         "Faça o pagamento da inscrição para libertar os seus palpites!",
+        "warning",
       );
-    if (isTimeLocked)
-      return alert("Tempo esgotado! Este jogo já está bloqueado.");
-    if (homeScore === "" || awayScore === "")
-      return alert("Preencha os dois placares!");
+      return;
+    }
+    if (isTimeLocked) {
+      showToast("Tempo esgotado! Este jogo já está bloqueado.", "warning");
+      return;
+    }
+    if (homeScore === "" || awayScore === "") {
+      showToast("Preencha os dois placares!", "warning");
+      return;
+    }
 
     setSaving(true);
-    const { error } = await supabase
-      .from("bets")
-      .upsert({
-        user_id: userId,
-        match_id: match.id,
-        home_team_score: parseInt(homeScore),
-        away_team_score: parseInt(awayScore),
-      });
+    const { error } = await supabase.from("bets").upsert({
+      user_id: userId,
+      match_id: match.id,
+      home_team_score: parseInt(homeScore),
+      away_team_score: parseInt(awayScore),
+    });
     setSaving(false);
-    if (error) alert("Erro ao salvar: " + error.message);
-    else alert("Palpite salvo com sucesso!");
+    if (error) {
+      showToast("Erro ao salvar: " + error.message, "error");
+    } else {
+      showToast("Palpite salvo com sucesso!", "success");
+    }
   }
 
   return (
