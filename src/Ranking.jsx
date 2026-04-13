@@ -15,7 +15,23 @@ export default function Ranking() {
         console.error("Erro ao buscar ranking:", error);
         setError(error.message);
       } else {
-        setRanking(data || []);
+        // CÉREBRO DE ORDENAÇÃO E DESEMPATE 🧠
+        const dadosOrdenados = (data || []).sort((a, b) => {
+          // 1º Critério: Pontos Totais (Maior para menor)
+          if (b.total_points !== a.total_points) {
+            return (b.total_points || 0) - (a.total_points || 0);
+          }
+          // 2º Critério: Acertos "Na Mosca" (Maior para menor)
+          if (b.exact_matches !== a.exact_matches) {
+            return (b.exact_matches || 0) - (a.exact_matches || 0);
+          }
+          // 3º Critério: Ordem Alfabética (A-Z)
+          const nomeA = a.name || a.display_name || "";
+          const nomeB = b.name || b.display_name || "";
+          return nomeA.localeCompare(nomeB);
+        });
+
+        setRanking(dadosOrdenados);
       }
       setLoading(false);
     }
@@ -69,19 +85,18 @@ export default function Ranking() {
               </div>
 
               <div>
-                {/* AQUI ESTÁ A ATUALIZAÇÃO DO NOME */}
-                <div className="font-bold text-gray-800 text-lg">
-                  {user.user_name
-                    ? user.user_name
+                <div className="font-bold text-gray-800 text-lg capitalize">
+                  {user.name || user.display_name
+                    ? user.name || user.display_name
                     : `Jogador ${user.user_id.substring(0, 5).toUpperCase()}`}
                 </div>
 
                 <div className="text-xs text-gray-500 flex items-center gap-3 mt-1">
                   <span className="flex items-center gap-1 text-green-600 font-medium">
-                    <Target size={14} /> {user.exact_count} na mosca
+                    <Target size={14} /> {user.exact_matches || 0} na mosca
                   </span>
                   <span className="flex items-center gap-1">
-                    <Medal size={14} /> {user.group_points} pts Grupos
+                    <Medal size={14} /> {user.group_points || 0} pts Grupos
                   </span>
                 </div>
               </div>
@@ -89,7 +104,7 @@ export default function Ranking() {
 
             <div className="text-right">
               <div className="text-3xl font-black text-brand-600 leading-none">
-                {user.total_points}
+                {user.total_points || 0}
               </div>
               <div className="text-[10px] text-gray-400 uppercase font-bold tracking-widest mt-1">
                 Pontos
