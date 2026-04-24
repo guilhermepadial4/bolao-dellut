@@ -1,16 +1,15 @@
 import { useState, useEffect } from "react";
 import { supabase } from "./supabaseClient";
 import { Save, Lock, AlertCircle } from "lucide-react";
-import { useToast } from "./ToastContext"; // Importe o hook useToast
+import { useToast } from "./ToastContext";
 
-// NOVO: Recebemos o paymentStatus
 export default function MatchCard({ match, userId, paymentStatus }) {
   const [homeScore, setHomeScore] = useState("");
   const [awayScore, setAwayScore] = useState("");
   const [saving, setSaving] = useState(false);
   const [points, setPoints] = useState(null);
 
-  const showToast = useToast(); // Use o hook useToast
+  const showToast = useToast();
 
   const matchDate = new Date(match.match_time);
   const now = new Date();
@@ -18,7 +17,6 @@ export default function MatchCard({ match, userId, paymentStatus }) {
   const isTimeLocked = now >= matchDate || match.status === "finished";
   const isPaymentLocked = paymentStatus !== "paid";
 
-  // O jogo fica bloqueado se o tempo passou OU se não pagou
   const isLocked = isTimeLocked || isPaymentLocked;
 
   useEffect(() => {
@@ -99,8 +97,9 @@ export default function MatchCard({ match, userId, paymentStatus }) {
 
         <div className="flex items-center justify-between gap-2">
           <div className="flex flex-col items-center flex-1">
-            <span className="text-3xl mb-2" title={match.teams_home?.name}>
-              {match.teams_home?.flag_url}
+            {/* CORREÇÃO AQUI: Mudado de flag_url para flag e ajustado o tamanho da fonte */}
+            <span className="text-4xl mb-2" title={match.teams_home?.name}>
+              {match.teams_home?.flag}
             </span>
             <span className="font-bold text-gray-700 text-sm text-center line-clamp-1">
               {match.teams_home?.name}
@@ -128,8 +127,9 @@ export default function MatchCard({ match, userId, paymentStatus }) {
           </div>
 
           <div className="flex flex-col items-center flex-1">
-            <span className="text-3xl mb-2" title={match.teams_away?.name}>
-              {match.teams_away?.flag_url}
+            {/* CORREÇÃO AQUI: Mudado de flag_url para flag e ajustado o tamanho da fonte */}
+            <span className="text-4xl mb-2" title={match.teams_away?.name}>
+              {match.teams_away?.flag}
             </span>
             <span className="font-bold text-gray-700 text-sm text-center line-clamp-1">
               {match.teams_away?.name}

@@ -16,7 +16,7 @@ import {
   UserCircle,
   BookOpen,
 } from "lucide-react";
-import { useToast } from "./ToastContext"; // Importe o hook useToast
+import { useToast } from "./ToastContext";
 
 // Importando a logo da pasta images
 import logo from "./images/logo-dellut-removebg-preview.png";
@@ -28,9 +28,10 @@ function App() {
   const [matchFilter, setMatchFilter] = useState("all");
   const [hasProfile, setHasProfile] = useState(true);
   const [tempName, setTempName] = useState("");
-  const [paymentStatus, setPaymentStatus] = useState("pending");
+  // 🔓 TRAVA DESATIVADA PARA TESTES: Iniciamos já como "paid"
+  const [paymentStatus, setPaymentStatus] = useState("paid");
 
-  const showToast = useToast(); // Use o hook useToast
+  const showToast = useToast();
 
   const ADMIN_EMAIL = "guilherme@dellut.com.br";
 
@@ -63,32 +64,31 @@ function App() {
     if (!profile) setHasProfile(false);
     else setHasProfile(true);
 
+    // O sistema continua a ler o banco de dados caso queira ver no Admin
     const { data: payment } = await supabase
       .from("payments")
       .select("status")
       .eq("user_id", currentSession.user.id)
       .maybeSingle();
-    if (payment && payment.status === "paid") {
-      setPaymentStatus("paid");
-    } else {
-      setPaymentStatus("pending");
-    }
+
+    // 🔓 TRAVA DESATIVADA PARA TESTES: Forçamos o status "paid" para todos!
+    setPaymentStatus("paid");
   }
 
   async function handleSaveProfile(e) {
     e.preventDefault();
     if (!tempName.trim()) {
-      showToast("Digite um nome válido para o seu perfil!", "warning"); // MODIFICADO
+      showToast("Digite um nome válido para o seu perfil!", "warning");
       return;
     }
     const { error } = await supabase
       .from("profiles")
       .insert({ id: session.user.id, name: tempName.trim() });
     if (error) {
-      showToast("Erro ao salvar nome: " + error.message, "error"); // MODIFICADO
+      showToast("Erro ao salvar nome: " + error.message, "error");
     } else {
       setHasProfile(true);
-      showToast("Nome salvo com sucesso!", "success"); // NOVO: Feedback de sucesso
+      showToast("Nome salvo com sucesso!", "success");
     }
   }
 
@@ -96,7 +96,7 @@ function App() {
     const { data } = await supabase
       .from("matches")
       .select(
-        `*, teams_home:home_team_id(name, flag_url), teams_away:away_team_id(name, flag_url)`,
+        `*, teams_home:home_team_id(name, flag), teams_away:away_team_id(name, flag)`,
       )
       .order("match_time", { ascending: true });
     setMatches(data || []);
@@ -143,7 +143,6 @@ function App() {
         </div>
       )}
 
-      {/* HEADER MINIMALISTA */}
       <header className="bg-white shadow-sm px-4 py-4 flex justify-between items-center sticky top-0 z-10">
         <div className="flex items-center gap-3">
           <img src={logo} alt="Logo" className="h-8 w-auto object-contain" />
@@ -242,7 +241,6 @@ function App() {
           {view === "rules" && <Rules />}
         </div>
 
-        {/* NOVO: Copyright Guilherme Padial */}
         <div className="mt-12 mb-4 text-center">
           <p className="text-xs text-gray-400">
             &copy; {new Date().getFullYear()} Bolão Dellut. Criado e

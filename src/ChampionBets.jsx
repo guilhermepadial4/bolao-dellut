@@ -1,9 +1,8 @@
 import { useState, useEffect } from "react";
 import { supabase } from "./supabaseClient";
 import { Trophy, Medal, Award, Save, Lock, AlertCircle } from "lucide-react";
-import { useToast } from "./ToastContext"; // Importe o hook useToast
+import { useToast } from "./ToastContext";
 
-// NOVO: Recebemos o paymentStatus
 export default function ChampionBets({ session, paymentStatus }) {
   const [teams, setTeams] = useState([]);
   const [bet, setBet] = useState({
@@ -14,7 +13,7 @@ export default function ChampionBets({ session, paymentStatus }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const showToast = useToast(); // Use o hook useToast
+  const showToast = useToast();
 
   const isPaymentLocked = paymentStatus !== "paid";
 
@@ -114,7 +113,6 @@ export default function ChampionBets({ session, paymentStatus }) {
           </div>
         )}
 
-        {/* 1º Lugar */}
         <div className="relative bg-yellow-50 p-4 rounded-lg border border-yellow-200">
           <div className="absolute -top-3 left-4 bg-yellow-500 text-white text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1">
             <Trophy size={12} /> Campeão (15 pts)
@@ -128,13 +126,12 @@ export default function ChampionBets({ session, paymentStatus }) {
             <option value="">Quem vai levantar a taça?</option>
             {teams.map((t) => (
               <option key={t.id} value={t.id}>
-                {t.flag_url} {t.name}
+                {t.flag} {t.name}
               </option>
             ))}
           </select>
         </div>
 
-        {/* 2º Lugar */}
         <div className="relative bg-gray-50 p-4 rounded-lg border border-gray-200">
           <div className="absolute -top-3 left-4 bg-gray-400 text-white text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1">
             <Medal size={12} /> Vice-Campeão (10 pts)
@@ -148,13 +145,12 @@ export default function ChampionBets({ session, paymentStatus }) {
             <option value="">Quem amarga o 2º lugar?</option>
             {teams.map((t) => (
               <option key={t.id} value={t.id}>
-                {t.flag_url} {t.name}
+                {t.flag} {t.name}
               </option>
             ))}
           </select>
         </div>
 
-        {/* 3º Lugar */}
         <div className="relative bg-orange-50 p-4 rounded-lg border border-orange-200">
           <div className="absolute -top-3 left-4 bg-orange-500 text-white text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1">
             <Award size={12} /> 3º Lugar (5 pts)
@@ -168,7 +164,7 @@ export default function ChampionBets({ session, paymentStatus }) {
             <option value="">Quem ganha a disputa de 3º?</option>
             {teams.map((t) => (
               <option key={t.id} value={t.id}>
-                {t.flag_url} {t.name}
+                {t.flag} {t.name}
               </option>
             ))}
           </select>

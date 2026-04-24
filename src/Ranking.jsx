@@ -1,36 +1,28 @@
 import { useState, useEffect } from "react";
 import { supabase } from "./supabaseClient";
-import { Trophy, Target, Medal, Loader2 } from "lucide-react"; // Importe Loader2
-import { useToast } from "./ToastContext"; // Importe o hook useToast
+import { Trophy, Target, Medal } from "lucide-react";
 
 export default function Ranking() {
   const [ranking, setRanking] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const showToast = useToast(); // Use o hook useToast
-
   useEffect(() => {
     async function fetchRanking() {
-      setLoading(true); // Garante que o loading seja true ao iniciar a busca
       const { data, error } = await supabase.from("leaderboard").select("*");
 
       if (error) {
         console.error("Erro ao buscar ranking:", error);
         setError(error.message);
-        showToast("Erro ao carregar o ranking: " + error.message, "error"); // MODIFICADO: Usar Toast
       } else {
         // CÉREBRO DE ORDENAÇÃO E DESEMPATE 🧠
         const dadosOrdenados = (data || []).sort((a, b) => {
-          // 1º Critério: Pontos Totais (Maior para menor)
           if (b.total_points !== a.total_points) {
             return (b.total_points || 0) - (a.total_points || 0);
           }
-          // 2º Critério: Acertos "Na Mosca" (Maior para menor)
           if (b.exact_matches !== a.exact_matches) {
             return (b.exact_matches || 0) - (a.exact_matches || 0);
           }
-          // 3º Critério: Ordem Alfabética (A-Z)
           const nomeA = a.name || a.display_name || "";
           const nomeB = b.name || b.display_name || "";
           return nomeA.localeCompare(nomeB);
@@ -45,12 +37,8 @@ export default function Ranking() {
 
   if (loading)
     return (
-      <div className="text-center p-10 text-gray-500 font-bold flex flex-col items-center justify-center">
-        {" "}
-        {/* MODIFICADO */}
-        <Loader2 className="animate-spin text-brand-500 mb-4" size={32} />{" "}
-        {/* NOVO: Spinner */}
-        <span>Calculando pontos... ⏳</span>
+      <div className="text-center p-10 text-gray-500 font-bold animate-pulse">
+        Calculando pontos... ⏳
       </div>
     );
 
@@ -79,7 +67,7 @@ export default function Ranking() {
           >
             <div className="flex items-center gap-4">
               <div
-                className={`w-10 h-10 flex items-center justify-center rounded-full font-black text-lg
+                className={`w-10 h-10 flex items-center justify-center rounded-full font-black text-lg shrink-0
                 ${
                   index === 0
                     ? "bg-yellow-100 text-yellow-600 shadow-sm border border-yellow-200"
@@ -94,10 +82,17 @@ export default function Ranking() {
               </div>
 
               <div>
-                <div className="font-bold text-gray-800 text-lg capitalize">
+                {/* NOME + BANDEIRA DO TIME CAMPEÃO */}
+                <div className="font-bold text-gray-800 text-lg capitalize flex items-center gap-2">
                   {user.name || user.display_name
                     ? user.name || user.display_name
                     : `Jogador ${user.user_id.substring(0, 5).toUpperCase()}`}
+
+                  {user.favorite_flag && (
+                    <span className="text-xl" title="Aposta para Campeão">
+                      {user.favorite_flag}
+                    </span>
+                  )}
                 </div>
 
                 <div className="text-xs text-gray-500 flex items-center gap-3 mt-1">
