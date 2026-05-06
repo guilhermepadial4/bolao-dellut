@@ -8,8 +8,22 @@ import {
   ArrowLeft,
   Eye,
   EyeOff,
-} from "lucide-react"; // Importe Eye e EyeOff
+} from "lucide-react";
 import { useToast } from "./ToastContext";
+
+function translateAuthError(message) {
+  if (message.includes("Invalid login credentials"))
+    return "E-mail ou senha inválidos.";
+  if (message.includes("User already registered"))
+    return "Esse e-mail já possui conta. Tente fazer login.";
+  if (message.includes("Password should be at least"))
+    return "A senha deve ter no mínimo 6 caracteres.";
+  if (message.includes("Unable to validate email address"))
+    return "E-mail inválido.";
+  if (message.includes("Email not confirmed"))
+    return "Confirme seu e-mail antes de entrar.";
+  return message;
+}
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -17,7 +31,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [isResetMode, setIsResetMode] = useState(false);
-  const [showPassword, setShowPassword] = useState(false); // NOVO: Estado para controlar a visibilidade da senha
+  const [showPassword, setShowPassword] = useState(false);
 
   const showToast = useToast();
 
@@ -33,8 +47,14 @@ export default function Login() {
         password,
       });
       error = signUpError;
-      if (!error)
-        showToast("Conta criada com sucesso! Pode fazer o login.", "success");
+      if (!error) {
+        showToast(
+          "Conta criada com sucesso! Faça login para continuar.",
+          "success",
+        );
+        setIsSignUp(false);
+        setPassword("");
+      }
     } else {
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email,
@@ -44,7 +64,7 @@ export default function Login() {
     }
 
     if (error) {
-      showToast(error.message, "error");
+      showToast(translateAuthError(error.message), "error");
     }
 
     setLoading(false);
@@ -67,7 +87,10 @@ export default function Login() {
     setLoading(false);
 
     if (error) {
-      showToast("Erro ao enviar recuperação: " + error.message, "error");
+      showToast(
+        "Erro ao enviar recuperação: " + translateAuthError(error.message),
+        "error",
+      );
     } else {
       showToast(
         "✅ Link de recuperação enviado! Verifique a sua caixa de entrada.",
@@ -145,7 +168,6 @@ export default function Login() {
             </div>
           </form>
         ) : (
-          /* TELA NORMAL DE LOGIN / CADASTRO */
           <>
             <form onSubmit={handleAuth} className="space-y-5">
               {/* Campo E-mail */}
@@ -174,7 +196,6 @@ export default function Login() {
                   <label className="block text-sm font-medium text-gray-700">
                     Senha
                   </label>
-                  {/* LINK ESQUECEU A SENHA (Só aparece no Login) */}
                   {!isSignUp && (
                     <button
                       type="button"
@@ -198,7 +219,6 @@ export default function Login() {
                     className="block w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-brand-500 focus:border-brand-500 outline-none transition"
                     placeholder="******"
                   />
-                  {/* NOVO: Botão para mostrar/esconder senha */}
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
@@ -228,7 +248,7 @@ export default function Login() {
                 {loading ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
                 ) : isSignUp ? (
-                  "Cadastrar e Entrar"
+                  "Cadastrar"
                 ) : (
                   <>
                     Entrar <ArrowRight size={16} className="ml-2" />
@@ -243,7 +263,10 @@ export default function Login() {
                 {isSignUp ? "Já tem uma conta?" : "Ainda não tem acesso?"}
               </p>
               <button
-                onClick={() => setIsSignUp(!isSignUp)}
+                onClick={() => {
+                  setIsSignUp(!isSignUp);
+                  setPassword("");
+                }}
                 className="text-brand-600 hover:text-brand-700 font-semibold text-sm mt-1 hover:underline"
               >
                 {isSignUp ? "Fazer Login" : "Criar conta agora"}

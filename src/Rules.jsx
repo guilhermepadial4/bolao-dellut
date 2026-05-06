@@ -6,7 +6,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 
-export default function Rules() {
+export default function Rules({ pixKey }) {
   return (
     <div className="max-w-3xl mx-auto p-4 mt-6 mb-24">
       {/* Cabeçalho */}
@@ -35,7 +35,7 @@ export default function Rules() {
               Faça o PIX para confirmar sua participação:
             </p>
             <p className="text-green-700 font-mono text-lg bg-white inline-block px-4 py-2 rounded border border-green-300 my-2 shadow-sm font-bold select-all">
-              SUA-CHAVE-PIX-AQUI
+              {pixKey || "CHAVE PIX A DEFINIR"}
             </p>
             <p className="text-green-600 text-xs mt-1">
               * Após o pagamento, o Admin vai atualizar seu status para "Pago"
@@ -94,25 +94,25 @@ export default function Rules() {
             <li className="flex items-center gap-3">
               <span className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded font-bold w-20 text-center">
                 15 pts
-              </span>{" "}
+              </span>
               Acertar o Campeão
             </li>
             <li className="flex items-center gap-3">
               <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded font-bold w-20 text-center">
                 10 pts
-              </span>{" "}
+              </span>
               Acertar o Vice-Campeão
             </li>
             <li className="flex items-center gap-3">
               <span className="bg-orange-100 text-orange-700 px-2 py-1 rounded font-bold w-20 text-center">
                 5 pts
-              </span>{" "}
+              </span>
               Acertar o 3º Lugar
             </li>
             <li className="flex items-center gap-3">
               <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded font-bold w-20 text-center">
                 +10 pts
-              </span>{" "}
+              </span>
               Bônus por acertar os 2 Finalistas exatos
             </li>
           </ul>
