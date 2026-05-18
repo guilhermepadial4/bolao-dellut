@@ -38,7 +38,7 @@ export default function MatchCard({
         }`}
       >
         {match.phase === "knockout"
-          ? "🔥 Mata-Mata (8/5 pts)"
+          ? "🔥 Mata-Mata (5/3 pts)"
           : "📊 Fase de Grupos (5/3 pts)"}
       </div>
 

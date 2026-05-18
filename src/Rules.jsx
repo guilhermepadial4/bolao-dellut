@@ -6,7 +6,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 
-export default function Rules({ pixKey }) {
+export default function Rules() {
   return (
     <div className="max-w-3xl mx-auto p-4 mt-6 mb-24">
       {/* Cabeçalho */}
@@ -35,7 +35,7 @@ export default function Rules({ pixKey }) {
               Faça o PIX para confirmar sua participação:
             </p>
             <p className="text-green-700 font-mono text-lg bg-white inline-block px-4 py-2 rounded border border-green-300 my-2 shadow-sm font-bold select-all">
-              {pixKey || "CHAVE PIX A DEFINIR"}
+              SUA-CHAVE-PIX-AQUI
             </p>
             <p className="text-green-600 text-xs mt-1">
               * Após o pagamento, o Admin vai atualizar seu status para "Pago"
@@ -66,14 +66,15 @@ export default function Rules({ pixKey }) {
               </ul>
             </div>
 
+            {/* MUDANÇA DA PONTUAÇÃO DO MATA-MATA AQUI 👇 */}
             <div className="bg-orange-50 p-4 rounded-lg border border-orange-100">
               <h4 className="font-bold text-orange-800 mb-2">🔥 Mata-Mata</h4>
               <ul className="text-sm text-orange-700 space-y-2">
                 <li>
-                  <strong>8 pontos:</strong> Placar exato (Na mosca!)
+                  <strong>5 pontos:</strong> Placar exato (Na mosca!)
                 </li>
                 <li>
-                  <strong>5 pontos:</strong> Acertar só o vencedor ou se foi
+                  <strong>3 pontos:</strong> Acertar só o vencedor ou se foi
                   empate
                 </li>
               </ul>
@@ -94,26 +95,20 @@ export default function Rules({ pixKey }) {
             <li className="flex items-center gap-3">
               <span className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded font-bold w-20 text-center">
                 15 pts
-              </span>
+              </span>{" "}
               Acertar o Campeão
             </li>
             <li className="flex items-center gap-3">
               <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded font-bold w-20 text-center">
                 10 pts
-              </span>
+              </span>{" "}
               Acertar o Vice-Campeão
             </li>
             <li className="flex items-center gap-3">
               <span className="bg-orange-100 text-orange-700 px-2 py-1 rounded font-bold w-20 text-center">
                 5 pts
-              </span>
+              </span>{" "}
               Acertar o 3º Lugar
-            </li>
-            <li className="flex items-center gap-3">
-              <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded font-bold w-20 text-center">
-                +10 pts
-              </span>
-              Bônus por acertar os 2 Finalistas exatos
             </li>
           </ul>
         </div>

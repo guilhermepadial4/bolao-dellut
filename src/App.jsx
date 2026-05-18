@@ -48,7 +48,6 @@ function App() {
       }
 
       try {
-        // Carrega tudo ao mesmo tempo de forma assíncrona
         await Promise.all([
           fetchMatches(),
           checkUserData(currentSession),
@@ -58,12 +57,10 @@ function App() {
       } catch (err) {
         console.error("Erro no carregamento dos dados:", err);
       } finally {
-        // ACONTEÇA O QUE ACONTECER, A TELA DE LOADING SAI
         if (isMounted) setLoadingApp(false);
       }
     }
 
-    // 1. Busca a sessão inicial ao abrir o site
     supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
       if (isMounted) {
         setSession(initialSession);
@@ -71,7 +68,6 @@ function App() {
       }
     });
 
-    // 2. Fica escutando ativamente mudanças (login/logout)
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, newSession) => {
@@ -81,7 +77,6 @@ function App() {
           setLoadingApp(true);
           loadAllData(newSession);
         } else {
-          // Lógica de Limpeza no Logout
           setMatches([]);
           setBets({});
           setPaymentStatus("pending");
@@ -93,7 +88,6 @@ function App() {
       }
     });
 
-    // 3. Trava de segurança extra (Timeout de 4 segundos)
     const safetyTimer = setTimeout(() => {
       if (isMounted && loadingApp) setLoadingApp(false);
     }, 4000);
@@ -103,7 +97,7 @@ function App() {
       subscription.unsubscribe();
       clearTimeout(safetyTimer);
     };
-  }, []); // Removemos a dependência 'loadingApp' para evitar loops
+  }, []);
 
   // ─── FETCH: PIX KEY ────────────────────────────────────────────────────────
   async function fetchPixKey() {
@@ -479,11 +473,20 @@ function App() {
           {view === "rules" && <Rules pixKey={pixKey} />}
         </div>
 
+        {/* FOOTER ATUALIZADO COM O SEU LINKEDIN 👇 */}
         <div className="mt-12 mb-4 text-center">
           <p className="text-xs text-gray-400">
             &copy; {new Date().getFullYear()} Bolão Dellut. Criado e
             administrado por{" "}
-            <span className="font-bold text-gray-500">Guilherme Padial</span>.
+            <a
+              href="https://www.linkedin.com/in/guilhermepadial/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-bold text-gray-500 hover:text-brand-600 hover:underline transition-colors"
+            >
+              Guilherme Padial
+            </a>
+            .
           </p>
         </div>
       </main>
