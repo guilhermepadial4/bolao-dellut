@@ -3,18 +3,13 @@ import { supabase } from "./supabaseClient";
 import {
   Trash2,
   Save,
-  CalendarPlus,
   ShieldAlert,
   Trophy,
-  Medal,
-  Award,
   DollarSign,
-  CheckCircle,
-  XCircle,
   RefreshCw,
   UploadCloud,
 } from "lucide-react";
-import { useToast } from "./ToastContext"; // Importe o hook useToast
+import { useToast } from "./ToastContext";
 
 export default function Admin({ session }) {
   const [matches, setMatches] = useState([]);
@@ -22,7 +17,6 @@ export default function Admin({ session }) {
   const [loading, setLoading] = useState(true);
   const [usersFinance, setUsersFinance] = useState([]);
 
-  // ESTADOS PARA CRIAÇÃO MANUAL
   const [newMatch, setNewMatch] = useState({
     home: "",
     away: "",
@@ -35,15 +29,12 @@ export default function Admin({ session }) {
     third_place: "",
   });
 
-  // ESTADO PARA A SINCRONIZAÇÃO AUTOMÁTICA
   const [syncing, setSyncing] = useState(false);
   const [apiKey, setApiKey] = useState("");
 
-  const showToast = useToast(); // Use o hook useToast
-
+  const showToast = useToast();
   const ADMIN_EMAIL = "guilherme@dellut.com.br";
 
-  // DICIONÁRIO DE TRADUÇÃO (API Inglês -> Banco Português)
   const teamDictionary = {
     Brazil: "Brasil",
     Argentina: "Argentina",
@@ -81,7 +72,8 @@ export default function Admin({ session }) {
   };
 
   useEffect(() => {
-    if (session?.user?.email === ADMIN_EMAIL) {
+    // CORREÇÃO DO EMAIL MAIÚSCULO/MINÚSCULO AQUI 👇
+    if (session?.user?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
       fetchData();
     } else {
       setLoading(false);
@@ -123,10 +115,7 @@ export default function Admin({ session }) {
 
   async function handleSyncWithAPI() {
     if (!apiKey) {
-      showToast(
-        "Por favor, cole sua API Key do football-data.org no campo abaixo!",
-        "warning",
-      ); // MODIFICADO
+      showToast("Por favor, cole sua API Key do football-data.org!", "warning");
       return;
     }
 
@@ -134,13 +123,10 @@ export default function Admin({ session }) {
     try {
       const response = await fetch(
         "https://api.football-data.org/v4/competitions/2000/matches",
-        {
-          headers: { "X-Auth-Token": apiKey },
-        },
+        { headers: { "X-Auth-Token": apiKey } },
       );
 
       const data = await response.json();
-
       if (data.errorCode) throw new Error(data.message);
       if (!data.matches) throw new Error("Nenhum jogo encontrado na API.");
 
@@ -171,24 +157,20 @@ export default function Admin({ session }) {
 
           const status =
             apiMatch.status === "FINISHED" ? "finished" : "scheduled";
-          const homeScore = apiMatch.score.fullTime.home;
-          const awayScore = apiMatch.score.fullTime.away;
-          const matchTime = apiMatch.utcDate;
-
           const matchData = {
             home_team_id: homeTeam.id,
             away_team_id: awayTeam.id,
-            match_time: matchTime,
+            match_time: apiMatch.utcDate,
             status: status,
-            home_score: homeScore,
-            away_score: awayScore,
+            home_score: apiMatch.score.fullTime.home,
+            away_score: apiMatch.score.fullTime.away,
             phase: apiMatch.stage === "GROUP_STAGE" ? "groups" : "knockout",
           };
 
           if (existingMatch) {
             if (
               existingMatch.status !== status ||
-              existingMatch.home_score !== homeScore
+              existingMatch.home_score !== matchData.home_score
             ) {
               await supabase
                 .from("matches")
@@ -204,12 +186,12 @@ export default function Admin({ session }) {
       }
 
       showToast(
-        `Sincronização concluída! Jogos Criados: ${createdCount}, Jogos Atualizados: ${updatedCount}`,
+        `Sincronizado! Criados: ${createdCount}, Atualizados: ${updatedCount}`,
         "success",
-      ); // MODIFICADO
+      );
       fetchData();
     } catch (error) {
-      showToast("Erro na sincronização: " + error.message, "error"); // MODIFICADO
+      showToast("Erro na sincronização: " + error.message, "error");
     } finally {
       setSyncing(false);
     }
@@ -221,52 +203,40 @@ export default function Admin({ session }) {
       .from("payments")
       .upsert({ user_id: userId, status: newStatus, updated_at: new Date() });
     if (error)
-      showToast("Erro ao atualizar pagamento: " + error.message, "error"); // MODIFICADO
+      showToast("Erro ao atualizar pagamento: " + error.message, "error");
     else {
-      showToast("Status de pagamento atualizado!", "success"); // NOVO: Feedback de sucesso
+      showToast("Status de pagamento atualizado!", "success");
       fetchData();
     }
   }
 
-  // --- AQUI ESTÁ A CORREÇÃO DO FUSO HORÁRIO ---
   async function handleCreateMatch(e) {
     e.preventDefault();
     if (!newMatch.home || !newMatch.away || !newMatch.time) {
-      showToast("Preencha todos os campos para criar o jogo!", "warning"); // MODIFICADO
+      showToast("Preencha todos os campos para criar o jogo!", "warning");
       return;
     }
 
-    // Converte a data local do Brasil para o formato Universal (UTC) antes de salvar no banco
     const dataCorrigida = new Date(newMatch.time).toISOString();
 
     const { error } = await supabase.from("matches").insert({
       home_team_id: newMatch.home,
       away_team_id: newMatch.away,
-      match_time: dataCorrigida, // <-- Salvando a data corrigida
+      match_time: dataCorrigida,
       phase: newMatch.phase,
       status: "scheduled",
     });
 
-    if (error)
-      showToast("Erro ao criar jogo: " + error.message, "error"); // MODIFICADO
+    if (error) showToast("Erro ao criar jogo: " + error.message, "error");
     else {
-      showToast("Jogo criado com sucesso!", "success"); // MODIFICADO
+      showToast("Jogo criado com sucesso!", "success");
       fetchData();
-      // Limpar formulário após sucesso
-      setNewMatch({
-        home: "",
-        away: "",
-        time: "",
-        phase: "groups",
-      });
+      setNewMatch({ home: "", away: "", time: "", phase: "groups" });
     }
   }
 
   async function handleUpdateScore(matchId, homeScore, awayScore) {
-    // Substituindo o confirm() nativo por um Toast de confirmação ou um modal customizado
-    // Por simplicidade, vou manter o confirm() por enquanto, mas idealmente seria um modal.
-    if (!confirm("Confirmar resultado final?")) return; // MANTER POR ENQUANTO
-
+    if (!confirm("Confirmar resultado final?")) return;
     const { error } = await supabase
       .from("matches")
       .update({
@@ -275,33 +245,25 @@ export default function Admin({ session }) {
         status: "finished",
       })
       .eq("id", matchId);
-    if (error)
-      showToast("Erro ao atualizar placar: " + error.message, "error"); // MODIFICADO
+    if (error) showToast("Erro ao atualizar placar: " + error.message, "error");
     else {
-      showToast("Placar atualizado com sucesso!", "success"); // MODIFICADO
+      showToast("Placar atualizado com sucesso!", "success");
       fetchData();
     }
   }
 
   async function handleDeleteMatch(id) {
-    // Substituindo o confirm() nativo por um Toast de confirmação ou um modal customizado
-    // Por simplicidade, vou manter o confirm() por enquanto, mas idealmente seria um modal.
-    if (!confirm("Apagar jogo?")) return; // MANTER POR ENQUANTO
-
+    if (!confirm("Apagar jogo?")) return;
     const { error } = await supabase.from("matches").delete().eq("id", id);
-    if (error)
-      showToast("Erro ao deletar jogo: " + error.message, "error"); // MODIFICADO
+    if (error) showToast("Erro ao deletar jogo: " + error.message, "error");
     else {
-      showToast("Jogo deletado com sucesso!", "success"); // MODIFICADO
+      showToast("Jogo deletado com sucesso!", "success");
       fetchData();
     }
   }
 
   async function handleSaveTournamentResult() {
-    // Substituindo o confirm() nativo por um Toast de confirmação ou um modal customizado
-    // Por simplicidade, vou manter o confirm() por enquanto, mas idealmente seria um modal.
-    if (!confirm("Salvar resultado da Copa?")) return; // MANTER POR ENQUANTO
-
+    if (!confirm("Salvar resultado da Copa?")) return;
     const { error } = await supabase.from("tournament_settings").upsert({
       id: 1,
       champion_id: finalResult.champion || null,
@@ -309,8 +271,8 @@ export default function Admin({ session }) {
       third_place_id: finalResult.third_place || null,
     });
     if (error)
-      showToast("Erro ao salvar pódio final: " + error.message, "error"); // MODIFICADO
-    else showToast("🏆 Pódio final salvo com sucesso!", "success"); // MODIFICADO
+      showToast("Erro ao salvar pódio final: " + error.message, "error");
+    else showToast("🏆 Pódio final salvo com sucesso!", "success");
   }
 
   if (loading)
@@ -319,7 +281,9 @@ export default function Admin({ session }) {
         Carregando painel...
       </div>
     );
-  if (session?.user?.email !== ADMIN_EMAIL)
+
+  // CORREÇÃO DO EMAIL MAIÚSCULO/MINÚSCULO AQUI 👇
+  if (session?.user?.email?.toLowerCase() !== ADMIN_EMAIL.toLowerCase())
     return (
       <div className="text-center p-10 text-red-500 font-bold">
         Acesso Negado
@@ -356,8 +320,8 @@ export default function Admin({ session }) {
         <div className="flex gap-2">
           <input
             type="text"
-            placeholder="Cole sua API Key aqui (ex: a1b2c3d4...)"
-            className="flex-1 p-2 border border-indigo-300 rounded text-sm"
+            placeholder="Cole sua API Key aqui..."
+            className="flex-1 p-2 border border-indigo-300 rounded text-sm outline-none focus:ring-2 focus:ring-indigo-500"
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
           />
@@ -371,7 +335,7 @@ export default function Admin({ session }) {
             ) : (
               <RefreshCw size={18} />
             )}
-            {syncing ? "Buscando..." : "Sincronizar Agora"}
+            {syncing ? "Buscando..." : "Sincronizar"}
           </button>
         </div>
       </div>
@@ -396,9 +360,9 @@ export default function Admin({ session }) {
                 onClick={() =>
                   handleTogglePayment(user.user_id, user.payment_status)
                 }
-                className={`px-2 py-0.5 rounded text-[10px] font-bold ${user.payment_status === "paid" ? "bg-green-100 text-green-700" : "bg-red-50 text-red-600"}`}
+                className={`px-2 py-0.5 rounded text-[10px] font-bold transition-transform active:scale-95 ${user.payment_status === "paid" ? "bg-green-100 text-green-700" : "bg-red-50 text-red-600"}`}
               >
-                {user.payment_status === "paid" ? "PAGO" : "PENDENTE"}
+                {user.payment_status === "paid" ? "PAGO ✅" : "PENDENTE 💳"}
               </button>
             </div>
           ))}
@@ -411,7 +375,7 @@ export default function Admin({ session }) {
         </h3>
         <div className="grid grid-cols-3 gap-2 mb-4">
           <select
-            className="p-2 border rounded text-xs"
+            className="p-2 border rounded text-xs outline-none"
             value={finalResult.champion}
             onChange={(e) =>
               setFinalResult({ ...finalResult, champion: e.target.value })
@@ -425,7 +389,7 @@ export default function Admin({ session }) {
             ))}
           </select>
           <select
-            className="p-2 border rounded text-xs"
+            className="p-2 border rounded text-xs outline-none"
             value={finalResult.runner_up}
             onChange={(e) =>
               setFinalResult({ ...finalResult, runner_up: e.target.value })
@@ -439,7 +403,7 @@ export default function Admin({ session }) {
             ))}
           </select>
           <select
-            className="p-2 border rounded text-xs"
+            className="p-2 border rounded text-xs outline-none"
             value={finalResult.third_place}
             onChange={(e) =>
               setFinalResult({ ...finalResult, third_place: e.target.value })
@@ -455,7 +419,7 @@ export default function Admin({ session }) {
         </div>
         <button
           onClick={handleSaveTournamentResult}
-          className="bg-yellow-600 text-white w-full py-2 rounded font-bold text-sm"
+          className="bg-yellow-600 text-white w-full py-2 rounded font-bold text-sm hover:bg-yellow-700 transition"
         >
           Salvar Pódio
         </button>
@@ -465,59 +429,86 @@ export default function Admin({ session }) {
         Gerenciar Jogos
       </h3>
 
-      <div className="bg-gray-50 p-4 rounded-lg mb-6 border border-gray-200">
+      <div className="bg-gray-50 p-4 rounded-lg mb-6 border border-gray-200 shadow-sm">
         <p className="text-xs font-bold text-gray-400 uppercase mb-2">
           Criação Manual
         </p>
         <form
           onSubmit={handleCreateMatch}
-          className="grid grid-cols-2 md:grid-cols-5 gap-2 items-end"
+          className="flex flex-wrap gap-2 items-end"
         >
-          <select
-            className="p-2 border rounded text-xs"
-            onChange={(e) =>
-              setNewMatch({ ...newMatch, phase: e.target.value })
-            }
-            value={newMatch.phase}
-          >
-            <option value="groups">Grupos</option>
-            <option value="knockout">Mata-Mata</option>
-          </select>
-          <select
-            className="p-2 border rounded text-xs"
-            onChange={(e) => setNewMatch({ ...newMatch, home: e.target.value })}
-            value={newMatch.home} // Adicionado para limpar o select
-          >
-            <option value="">Casa...</option>
-            {teams.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-          <select
-            className="p-2 border rounded text-xs"
-            onChange={(e) => setNewMatch({ ...newMatch, away: e.target.value })}
-            value={newMatch.away} // Adicionado para limpar o select
-          >
-            <option value="">Visitante...</option>
-            {teams.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-          <input
-            type="datetime-local"
-            className="p-2 border rounded text-xs"
-            onChange={(e) => setNewMatch({ ...newMatch, time: e.target.value })}
-            value={newMatch.time} // Adicionado para limpar o input
-          />
+          <div className="flex-1 min-w-[120px]">
+            <label className="text-[10px] text-gray-500 font-bold ml-1">
+              Fase
+            </label>
+            <select
+              className="w-full p-2 border rounded text-xs outline-none focus:border-brand-500"
+              onChange={(e) =>
+                setNewMatch({ ...newMatch, phase: e.target.value })
+              }
+              value={newMatch.phase}
+            >
+              <option value="groups">Fase de Grupos</option>
+              <option value="knockout">Mata-Mata</option>
+            </select>
+          </div>
+
+          <div className="flex-1 min-w-[120px]">
+            <label className="text-[10px] text-gray-500 font-bold ml-1">
+              Casa
+            </label>
+            <select
+              className="w-full p-2 border rounded text-xs outline-none focus:border-brand-500"
+              onChange={(e) =>
+                setNewMatch({ ...newMatch, home: e.target.value })
+              }
+              value={newMatch.home}
+            >
+              <option value="">Equipe Casa...</option>
+              {teams.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex-1 min-w-[120px]">
+            <label className="text-[10px] text-gray-500 font-bold ml-1">
+              Visitante
+            </label>
+            <select
+              className="w-full p-2 border rounded text-xs outline-none focus:border-brand-500"
+              onChange={(e) =>
+                setNewMatch({ ...newMatch, away: e.target.value })
+              }
+              value={newMatch.away}
+            >
+              <option value="">Equipe Visitante...</option>
+              {teams.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex-1 min-w-[160px]">
+            <label className="text-[10px] text-gray-500 font-bold ml-1">
+              Data e Hora
+            </label>
+            <input
+              type="datetime-local"
+              className="w-full p-2 border rounded text-xs outline-none focus:border-brand-500"
+              onChange={(e) =>
+                setNewMatch({ ...newMatch, time: e.target.value })
+              }
+              value={newMatch.time}
+            />
+          </div>
           <button
             type="submit"
-            className="bg-brand-600 text-white p-2 rounded text-xs font-bold"
+            className="bg-brand-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-brand-700 transition h-8 self-end mb-[2px]"
           >
-            Criar
+            Criar Jogo
           </button>
         </form>
       </div>
@@ -529,23 +520,33 @@ export default function Admin({ session }) {
             className="flex items-center justify-between border p-3 rounded bg-white shadow-sm"
           >
             <div className="text-xs">
-              <span className="font-bold text-gray-700">
+              <span className="font-bold text-gray-700 block">
                 {match.teams_home?.name} x {match.teams_away?.name}
               </span>
-              <div className="text-gray-400">
-                {new Date(match.match_time).toLocaleString("pt-BR")}
+              <div className="text-gray-400 mt-1 flex items-center gap-2">
+                <span>
+                  {new Date(match.match_time).toLocaleString("pt-BR", {
+                    dateStyle: "short",
+                    timeStyle: "short",
+                  })}
+                </span>
+                <span
+                  className={`px-2 py-0.5 rounded text-[10px] font-bold ${match.phase === "knockout" ? "bg-orange-100 text-orange-700" : "bg-gray-100 text-gray-600"}`}
+                >
+                  {match.phase === "knockout" ? "Mata-Mata" : "Fase de Grupos"}
+                </span>
               </div>
             </div>
             <div className="flex gap-2">
               <input
                 type="number"
-                className="w-10 border text-center font-bold"
+                className="w-10 border text-center font-bold outline-none focus:border-brand-500 rounded"
                 defaultValue={match.home_score}
                 id={`h-${match.id}`}
               />
               <input
                 type="number"
-                className="w-10 border text-center font-bold"
+                className="w-10 border text-center font-bold outline-none focus:border-brand-500 rounded"
                 defaultValue={match.away_score}
                 id={`a-${match.id}`}
               />
@@ -557,13 +558,13 @@ export default function Admin({ session }) {
                     document.getElementById(`a-${match.id}`).value,
                   )
                 }
-                className="bg-green-100 text-green-700 p-2 rounded hover:bg-green-200"
+                className="bg-green-100 text-green-700 p-2 rounded hover:bg-green-200 transition"
               >
                 <Save size={16} />
               </button>
               <button
                 onClick={() => handleDeleteMatch(match.id)}
-                className="bg-red-50 text-red-400 p-2 rounded hover:bg-red-100"
+                className="bg-red-50 text-red-400 p-2 rounded hover:bg-red-100 transition"
               >
                 <Trash2 size={16} />
               </button>

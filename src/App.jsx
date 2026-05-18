@@ -37,7 +37,6 @@ function App() {
   const showToast = useToast();
   const ADMIN_EMAIL = "guilherme@dellut.com.br";
 
-  // ─── INICIALIZAÇÃO SEGURA (À PROVA DE FALHAS) ─────────────────────────────
   useEffect(() => {
     let isMounted = true;
 
@@ -99,7 +98,6 @@ function App() {
     };
   }, []);
 
-  // ─── FETCH: PIX KEY ────────────────────────────────────────────────────────
   async function fetchPixKey() {
     try {
       const { data, error } = await supabase
@@ -116,7 +114,6 @@ function App() {
     }
   }
 
-  // ─── FETCH: PERFIL + PAGAMENTO ─────────────────────────────────────────────
   async function checkUserData(currentSession) {
     const userId = currentSession.user.id;
 
@@ -137,11 +134,10 @@ function App() {
       setUserName(profile.name);
     }
 
-    // 🔓 MODO DE TESTES: Forçamos o pagamento como PAGO para a malta testar
+    // 🔓 MODO DE TESTES MANTIDO
     setPaymentStatus("paid");
   }
 
-  // ─── FETCH: PARTIDAS ───────────────────────────────────────────────────────
   async function fetchMatches() {
     const { data, error } = await supabase
       .from("matches")
@@ -157,7 +153,6 @@ function App() {
     setMatches(data || []);
   }
 
-  // ─── FETCH: APOSTAS DO USUÁRIO ─────────────────────────────────────────────
   async function fetchBets(userId) {
     const { data, error } = await supabase
       .from("bets")
@@ -180,7 +175,6 @@ function App() {
     setBets(betsMap);
   }
 
-  // ─── SALVAR TODOS OS PALPITES ──────────────────────────────────────────────
   async function handleSaveAllBets() {
     if (paymentStatus !== "paid") {
       showToast(
@@ -241,7 +235,6 @@ function App() {
     }
   }
 
-  // ─── SALVAR PERFIL ─────────────────────────────────────────────────────────
   async function handleSaveProfile(e) {
     e.preventDefault();
     const name = tempName.trim();
@@ -264,12 +257,10 @@ function App() {
     }
   }
 
-  // ─── LOGOUT ────────────────────────────────────────────────────────────────
   async function handleLogout() {
     await supabase.auth.signOut();
   }
 
-  // ─── FILTROS ───────────────────────────────────────────────────────────────
   const filteredMatches = matches.filter((match) => {
     if (matchFilter === "upcoming") return match.status === "scheduled";
     if (matchFilter === "finished") return match.status === "finished";
@@ -285,7 +276,6 @@ function App() {
     return isOpen && bet && bet.home !== "" && bet.away !== "";
   });
 
-  // ─── LOADING ───────────────────────────────────────────────────────────────
   if (loadingApp) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
@@ -299,10 +289,8 @@ function App() {
 
   if (!session) return <Login />;
 
-  // ─── RENDER ────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-gray-100 pb-36">
-      {/* Modal de perfil — primeira vez */}
       {!hasProfile && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl text-center">
@@ -333,7 +321,6 @@ function App() {
         </div>
       )}
 
-      {/* Header */}
       <header className="bg-white shadow-sm px-4 py-4 flex justify-between items-center sticky top-0 z-10">
         <div className="flex items-center gap-3">
           <img src={logo} alt="Logo" className="h-8 w-auto object-contain" />
@@ -348,7 +335,9 @@ function App() {
         </div>
 
         <div className="flex items-center gap-4">
-          {session?.user?.email === ADMIN_EMAIL && (
+          {/* CORREÇÃO DO EMAIL MAIÚSCULO/MINÚSCULO AQUI 👇 */}
+          {session?.user?.email?.toLowerCase() ===
+            ADMIN_EMAIL.toLowerCase() && (
             <button
               onClick={() => setView("admin")}
               className="text-xs bg-gray-800 text-white px-3 py-1.5 rounded flex items-center gap-1 hover:bg-gray-700 transition"
@@ -377,10 +366,8 @@ function App() {
         </div>
       </header>
 
-      {/* Conteúdo principal */}
       <main className="max-w-5xl mx-auto p-4 flex flex-col min-h-[80vh]">
         <div className="flex-grow">
-          {/* Banner pagamento pendente */}
           {paymentStatus !== "paid" && view !== "rules" && view !== "admin" && (
             <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg mb-6 shadow-sm">
               <p className="text-red-700 text-sm font-bold">
@@ -399,7 +386,6 @@ function App() {
             </div>
           )}
 
-          {/* VIEW: JOGOS */}
           {view === "matches" && (
             <>
               <div className="mb-6 flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
@@ -463,23 +449,19 @@ function App() {
           )}
 
           {view === "ranking" && <Ranking />}
-
           {view === "champions" && (
             <ChampionBets session={session} paymentStatus={paymentStatus} />
           )}
-
           {view === "admin" && <Admin session={session} />}
-
           {view === "rules" && <Rules pixKey={pixKey} />}
         </div>
 
-        {/* FOOTER ATUALIZADO COM O SEU LINKEDIN 👇 */}
         <div className="mt-12 mb-4 text-center">
           <p className="text-xs text-gray-400">
             &copy; {new Date().getFullYear()} Bolão Dellut. Criado e
             administrado por{" "}
             <a
-              href="https://www.linkedin.com/in/guilhermepadial/"
+              href="https://www.linkedin.com/in/seu-perfil"
               target="_blank"
               rel="noopener noreferrer"
               className="font-bold text-gray-500 hover:text-brand-600 hover:underline transition-colors"
