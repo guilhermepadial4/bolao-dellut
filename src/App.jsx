@@ -16,6 +16,7 @@ import {
   UserCircle,
   BookOpen,
   Save,
+  Calendar,
 } from "lucide-react";
 import { useToast } from "./ToastContext";
 import logo from "./images/logo-dellut-removebg-preview.png";
@@ -26,7 +27,10 @@ function App() {
   const [bets, setBets] = useState({});
   const [savingAll, setSavingAll] = useState(false);
   const [view, setView] = useState("matches");
-  const [matchFilter, setMatchFilter] = useState("all");
+
+  // 1. MUDANÇA: Aba padrão agora é 'upcoming' (Próximos) para um menu principal limpo
+  const [matchFilter, setMatchFilter] = useState("upcoming");
+
   const [hasProfile, setHasProfile] = useState(true);
   const [tempName, setTempName] = useState("");
   const [userName, setUserName] = useState("");
@@ -134,7 +138,6 @@ function App() {
       setUserName(profile.name);
     }
 
-    // 🔓 MODO DE TESTES MANTIDO
     setPaymentStatus("paid");
   }
 
@@ -261,11 +264,28 @@ function App() {
     await supabase.auth.signOut();
   }
 
+  // 2. MUDANÇA: Lógica inteligente de filtragem baseada no fim do dia
   const filteredMatches = matches.filter((match) => {
-    if (matchFilter === "upcoming") return match.status === "scheduled";
-    if (matchFilter === "finished") return match.status === "finished";
+    const now = new Date();
+    // Zera as horas para comparar apenas os dias (Hoje à meia-noite)
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    const matchDateObj = new Date(match.match_time);
+    const matchDay = new Date(
+      matchDateObj.getFullYear(),
+      matchDateObj.getMonth(),
+      matchDateObj.getDate(),
+    );
+
+    // O jogo é considerado "Encerrado" se o admin já colocou o resultado (status === "finished")
+    // OU se o dia do jogo já ficou no passado (matchDay < today).
+    const isFinished = match.status === "finished" || matchDay < today;
+
+    if (matchFilter === "upcoming") return !isFinished; // Esconde tudo o que já encerrou/passou do dia
+    if (matchFilter === "finished") return isFinished; // Mostra apenas o que já encerrou
     if (matchFilter === "knockout") return match.phase === "knockout";
-    return true;
+
+    return true; // "all"
   });
 
   const hasUnsavedBets = filteredMatches.some((match) => {
@@ -275,6 +295,22 @@ function App() {
     const bet = bets[match.id];
     return isOpen && bet && bet.home !== "" && bet.away !== "";
   });
+
+  const matchesGroupedByDate = filteredMatches.reduce((groups, match) => {
+    const dateObj = new Date(match.match_time);
+    const dateStr = dateObj.toLocaleDateString("pt-BR", {
+      weekday: "long",
+      day: "2-digit",
+      month: "2-digit",
+    });
+    const formattedDate = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
+
+    if (!groups[formattedDate]) {
+      groups[formattedDate] = [];
+    }
+    groups[formattedDate].push(match);
+    return groups;
+  }, {});
 
   if (loadingApp) {
     return (
@@ -335,7 +371,6 @@ function App() {
         </div>
 
         <div className="flex items-center gap-4">
-          {/* CORREÇÃO DO EMAIL MAIÚSCULO/MINÚSCULO AQUI 👇 */}
           {session?.user?.email?.toLowerCase() ===
             ADMIN_EMAIL.toLowerCase() && (
             <button
@@ -420,29 +455,47 @@ function App() {
                   <p>Nenhum jogo encontrado.</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {filteredMatches.map((match) => (
-                    <MatchCard
-                      key={match.id}
-                      match={match}
-                      paymentStatus={paymentStatus}
-                      homeScore={bets[match.id]?.home ?? ""}
-                      awayScore={bets[match.id]?.away ?? ""}
-                      points={bets[match.id]?.points ?? null}
-                      onChangeHome={(val) =>
-                        setBets((prev) => ({
-                          ...prev,
-                          [match.id]: { ...prev[match.id], home: val },
-                        }))
-                      }
-                      onChangeAway={(val) =>
-                        setBets((prev) => ({
-                          ...prev,
-                          [match.id]: { ...prev[match.id], away: val },
-                        }))
-                      }
-                    />
-                  ))}
+                <div className="space-y-10">
+                  {Object.entries(matchesGroupedByDate).map(
+                    ([dateLabel, dayMatches]) => (
+                      <div key={dateLabel} className="space-y-4">
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-2 bg-brand-100 text-brand-800 px-4 py-1.5 rounded-full shadow-sm border border-brand-200">
+                            <Calendar size={18} className="text-brand-600" />
+                            <h3 className="text-sm font-black uppercase tracking-wide">
+                              {dateLabel}
+                            </h3>
+                          </div>
+                          <div className="flex-1 border-t-2 border-gray-200 border-dashed"></div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                          {dayMatches.map((match) => (
+                            <MatchCard
+                              key={match.id}
+                              match={match}
+                              paymentStatus={paymentStatus}
+                              homeScore={bets[match.id]?.home ?? ""}
+                              awayScore={bets[match.id]?.away ?? ""}
+                              points={bets[match.id]?.points ?? null}
+                              onChangeHome={(val) =>
+                                setBets((prev) => ({
+                                  ...prev,
+                                  [match.id]: { ...prev[match.id], home: val },
+                                }))
+                              }
+                              onChangeAway={(val) =>
+                                setBets((prev) => ({
+                                  ...prev,
+                                  [match.id]: { ...prev[match.id], away: val },
+                                }))
+                              }
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    ),
+                  )}
                 </div>
               )}
             </>
