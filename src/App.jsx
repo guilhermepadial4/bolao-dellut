@@ -16,7 +16,7 @@ import {
   UserCircle,
   BookOpen,
   Save,
-  Calendar,
+  Clock, // Novo ícone para as regras de horário
 } from "lucide-react";
 import { useToast } from "./ToastContext";
 import logo from "./images/logo-dellut-removebg-preview.png";
@@ -27,10 +27,7 @@ function App() {
   const [bets, setBets] = useState({});
   const [savingAll, setSavingAll] = useState(false);
   const [view, setView] = useState("matches");
-
-  // 1. MUDANÇA: Aba padrão agora é 'upcoming' (Próximos) para um menu principal limpo
   const [matchFilter, setMatchFilter] = useState("upcoming");
-
   const [hasProfile, setHasProfile] = useState(true);
   const [tempName, setTempName] = useState("");
   const [userName, setUserName] = useState("");
@@ -40,6 +37,43 @@ function App() {
 
   const showToast = useToast();
   const ADMIN_EMAIL = "guilherme@dellut.com.br";
+
+  // ─── LÓGICA DE RODADAS E FECHAMENTO ────────────────────────────────────
+  const getRoundInfo = (match) => {
+    if (match.phase === "knockout") {
+      return { name: "🔥 Mata-Mata", deadline: new Date(match.match_time) };
+    }
+
+    const d = new Date(match.match_time);
+    const m = d.getMonth() + 1;
+    const day = d.getDate();
+
+    // Mês 6 (Junho). Define o nome da rodada e o horário limite (23:59 do dia anterior)
+    if (m === 6) {
+      if (day >= 11 && day <= 17) {
+        return {
+          name: "Rodada 1",
+          deadline: new Date(2026, 5, 10, 23, 59, 59),
+        }; // Fecha 10/06
+      }
+      if (day >= 18 && day <= 23) {
+        return {
+          name: "Rodada 2",
+          deadline: new Date(2026, 5, 17, 23, 59, 59),
+        }; // Fecha 17/06
+      }
+      if (day >= 24 && day <= 30) {
+        return {
+          name: "Rodada 3",
+          deadline: new Date(2026, 5, 23, 23, 59, 59),
+        }; // Fecha 23/06
+      }
+    }
+
+    // Fallback de segurança se algum jogo fugir das datas
+    return { name: "Fase de Grupos", deadline: new Date(match.match_time) };
+  };
+  // ────────────────────────────────────────────────────────────────────────
 
   useEffect(() => {
     let isMounted = true;
@@ -120,7 +154,6 @@ function App() {
 
   async function checkUserData(currentSession) {
     const userId = currentSession.user.id;
-
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("name")
@@ -191,8 +224,9 @@ function App() {
 
     const betsToSave = filteredMatches
       .filter((match) => {
-        const matchDate = new Date(match.match_time);
-        const isOpen = now < matchDate && match.status !== "finished";
+        const roundInfo = getRoundInfo(match);
+        // O jogo está "aberto" apenas se a hora atual for menor que o limite da rodada
+        const isOpen = now < roundInfo.deadline && match.status !== "finished";
         const bet = bets[match.id];
         return (
           isOpen &&
@@ -212,23 +246,20 @@ function App() {
 
     if (betsToSave.length === 0) {
       showToast(
-        "Nenhum palpite novo para salvar. Preencha os placares dos jogos abertos!",
+        "Nenhum palpite novo para salvar ou o prazo dessa rodada já fechou!",
         "warning",
       );
       return;
     }
 
     setSavingAll(true);
-
     const { error } = await supabase
       .from("bets")
       .upsert(betsToSave, { onConflict: "user_id,match_id" });
-
     setSavingAll(false);
 
     if (error) {
       showToast("Erro ao salvar palpites: " + error.message, "error");
-      await fetchBets(session.user.id);
     } else {
       showToast(
         `${betsToSave.length} palpite(s) salvo(s) com sucesso! ✅`,
@@ -245,15 +276,11 @@ function App() {
       showToast("Digite um nome válido para o seu perfil!", "warning");
       return;
     }
-
-    const { error } = await supabase.from("profiles").upsert({
-      id: session.user.id,
-      name,
-    });
-
-    if (error) {
-      showToast("Erro ao salvar nome: " + error.message, "error");
-    } else {
+    const { error } = await supabase
+      .from("profiles")
+      .upsert({ id: session.user.id, name });
+    if (error) showToast("Erro ao salvar nome: " + error.message, "error");
+    else {
       setHasProfile(true);
       setUserName(name);
       showToast("Nome salvo com sucesso!", "success");
@@ -264,12 +291,9 @@ function App() {
     await supabase.auth.signOut();
   }
 
-  // 2. MUDANÇA: Lógica inteligente de filtragem baseada no fim do dia
   const filteredMatches = matches.filter((match) => {
     const now = new Date();
-    // Zera as horas para comparar apenas os dias (Hoje à meia-noite)
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
     const matchDateObj = new Date(match.match_time);
     const matchDay = new Date(
       matchDateObj.getFullYear(),
@@ -277,38 +301,32 @@ function App() {
       matchDateObj.getDate(),
     );
 
-    // O jogo é considerado "Encerrado" se o admin já colocou o resultado (status === "finished")
-    // OU se o dia do jogo já ficou no passado (matchDay < today).
     const isFinished = match.status === "finished" || matchDay < today;
 
-    if (matchFilter === "upcoming") return !isFinished; // Esconde tudo o que já encerrou/passou do dia
-    if (matchFilter === "finished") return isFinished; // Mostra apenas o que já encerrou
+    if (matchFilter === "upcoming") return !isFinished;
+    if (matchFilter === "finished") return isFinished;
     if (matchFilter === "knockout") return match.phase === "knockout";
 
-    return true; // "all"
+    return true;
   });
 
   const hasUnsavedBets = filteredMatches.some((match) => {
     const now = new Date();
-    const matchDate = new Date(match.match_time);
-    const isOpen = now < matchDate && match.status !== "finished";
+    const roundInfo = getRoundInfo(match);
+    const isOpen = now < roundInfo.deadline && match.status !== "finished";
     const bet = bets[match.id];
     return isOpen && bet && bet.home !== "" && bet.away !== "";
   });
 
-  const matchesGroupedByDate = filteredMatches.reduce((groups, match) => {
-    const dateObj = new Date(match.match_time);
-    const dateStr = dateObj.toLocaleDateString("pt-BR", {
-      weekday: "long",
-      day: "2-digit",
-      month: "2-digit",
-    });
-    const formattedDate = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
+  // Agrupa visualmente usando o Nome da Rodada e a Data Limite
+  const matchesGroupedByRound = filteredMatches.reduce((groups, match) => {
+    const roundInfo = getRoundInfo(match);
+    const roundName = roundInfo.name;
 
-    if (!groups[formattedDate]) {
-      groups[formattedDate] = [];
+    if (!groups[roundName]) {
+      groups[roundName] = { matches: [], deadline: roundInfo.deadline };
     }
-    groups[formattedDate].push(match);
+    groups[roundName].matches.push(match);
     return groups;
   }, {});
 
@@ -335,7 +353,7 @@ function App() {
               Bem-vindo(a)!
             </h2>
             <p className="text-sm text-gray-500 mb-6">
-              Como quer ser chamado no Ranking do Bolão?
+              Como quer ser chamado no Ranking?
             </p>
             <form onSubmit={handleSaveProfile}>
               <input
@@ -363,13 +381,10 @@ function App() {
           <div>
             <h1 className="text-xl font-bold text-gray-800">BOLÃO</h1>
             <p className="text-xs text-gray-500">
-              {userName
-                ? `Jogador: ${userName}`
-                : session.user.email || "Jogador"}
+              {userName ? `Jogador: ${userName}` : session.user.email}
             </p>
           </div>
         </div>
-
         <div className="flex items-center gap-4">
           {session?.user?.email?.toLowerCase() ===
             ADMIN_EMAIL.toLowerCase() && (
@@ -382,18 +397,13 @@ function App() {
           )}
           <div className="flex flex-col items-end">
             <span
-              className={`text-[10px] font-bold px-2 py-1 rounded-full ${
-                paymentStatus === "paid"
-                  ? "bg-green-100 text-green-700 border border-green-200"
-                  : "bg-red-50 text-red-600 border border-red-200"
-              }`}
+              className={`text-[10px] font-bold px-2 py-1 rounded-full ${paymentStatus === "paid" ? "bg-green-100 text-green-700 border border-green-200" : "bg-red-50 text-red-600 border border-red-200"}`}
             >
               {paymentStatus === "paid" ? "Pago ✅" : "Pendente 💳"}
             </span>
             <button
               onClick={handleLogout}
               className="mt-1 text-gray-400 hover:text-red-500 transition"
-              title="Sair"
             >
               <LogOut size={20} />
             </button>
@@ -416,7 +426,7 @@ function App() {
                 >
                   Regras
                 </button>{" "}
-                para ver a chave PIX da inscrição.
+                para ver a chave PIX.
               </p>
             </div>
           )}
@@ -436,13 +446,7 @@ function App() {
                   <button
                     key={key}
                     onClick={() => setMatchFilter(key)}
-                    className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-colors ${
-                      matchFilter === key
-                        ? orange
-                          ? "bg-orange-500 text-white"
-                          : "bg-brand-600 text-white"
-                        : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
-                    }`}
+                    className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-colors ${matchFilter === key ? (orange ? "bg-orange-500 text-white" : "bg-brand-600 text-white") : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"}`}
                   >
                     {label}
                   </button>
@@ -456,42 +460,69 @@ function App() {
                 </div>
               ) : (
                 <div className="space-y-10">
-                  {Object.entries(matchesGroupedByDate).map(
-                    ([dateLabel, dayMatches]) => (
-                      <div key={dateLabel} className="space-y-4">
+                  {Object.entries(matchesGroupedByRound).map(
+                    ([roundName, roundData]) => (
+                      <div key={roundName} className="space-y-4">
+                        {/* --- CABEÇALHO DA RODADA --- */}
                         <div className="flex items-center gap-3">
-                          <div className="flex items-center gap-2 bg-brand-100 text-brand-800 px-4 py-1.5 rounded-full shadow-sm border border-brand-200">
-                            <Calendar size={18} className="text-brand-600" />
-                            <h3 className="text-sm font-black uppercase tracking-wide">
-                              {dateLabel}
-                            </h3>
+                          <div className="flex flex-col bg-brand-100 text-brand-800 px-5 py-2.5 rounded-xl shadow-sm border border-brand-200">
+                            <div className="flex items-center gap-2">
+                              <Trophy size={18} className="text-brand-600" />
+                              <h3 className="text-sm font-black uppercase tracking-wide">
+                                {roundName}
+                              </h3>
+                            </div>
+                            <div className="flex items-center gap-1 mt-1 text-[10px] text-brand-600 font-bold">
+                              <Clock size={12} />
+                              <span>
+                                {roundName.includes("Rodada")
+                                  ? `Encerra dia ${roundData.deadline.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })} às 23:59`
+                                  : "Encerra no horário do jogo"}
+                              </span>
+                            </div>
                           </div>
                           <div className="flex-1 border-t-2 border-gray-200 border-dashed"></div>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                          {dayMatches.map((match) => (
-                            <MatchCard
-                              key={match.id}
-                              match={match}
-                              paymentStatus={paymentStatus}
-                              homeScore={bets[match.id]?.home ?? ""}
-                              awayScore={bets[match.id]?.away ?? ""}
-                              points={bets[match.id]?.points ?? null}
-                              onChangeHome={(val) =>
-                                setBets((prev) => ({
-                                  ...prev,
-                                  [match.id]: { ...prev[match.id], home: val },
-                                }))
-                              }
-                              onChangeAway={(val) =>
-                                setBets((prev) => ({
-                                  ...prev,
-                                  [match.id]: { ...prev[match.id], away: val },
-                                }))
-                              }
-                            />
-                          ))}
+                          {roundData.matches.map((match) => {
+                            const now = new Date();
+                            const rInfo = getRoundInfo(match);
+                            // Envia para o MatchCard a informação de que a rodada FECHOU
+                            const isLocked =
+                              now > rInfo.deadline ||
+                              match.status === "finished";
+
+                            return (
+                              <MatchCard
+                                key={match.id}
+                                match={match}
+                                paymentStatus={paymentStatus}
+                                isLockedOverride={isLocked} // <- Parâmetro vital novo
+                                homeScore={bets[match.id]?.home ?? ""}
+                                awayScore={bets[match.id]?.away ?? ""}
+                                points={bets[match.id]?.points ?? null}
+                                onChangeHome={(val) =>
+                                  setBets((prev) => ({
+                                    ...prev,
+                                    [match.id]: {
+                                      ...prev[match.id],
+                                      home: val,
+                                    },
+                                  }))
+                                }
+                                onChangeAway={(val) =>
+                                  setBets((prev) => ({
+                                    ...prev,
+                                    [match.id]: {
+                                      ...prev[match.id],
+                                      away: val,
+                                    },
+                                  }))
+                                }
+                              />
+                            );
+                          })}
                         </div>
                       </div>
                     ),
@@ -514,10 +545,9 @@ function App() {
             &copy; {new Date().getFullYear()} Bolão Dellut. Criado e
             administrado por{" "}
             <a
-              href="https://www.linkedin.com/in/seu-perfil"
+              href="#"
               target="_blank"
-              rel="noopener noreferrer"
-              className="font-bold text-gray-500 hover:text-brand-600 hover:underline transition-colors"
+              className="font-bold text-gray-500 hover:text-brand-600 transition-colors"
             >
               Guilherme Padial
             </a>
@@ -526,7 +556,6 @@ function App() {
         </div>
       </main>
 
-      {/* Botão global de salvar */}
       {view === "matches" && paymentStatus === "paid" && hasUnsavedBets && (
         <div className="fixed bottom-20 left-0 right-0 flex justify-center z-30 px-4 pointer-events-none">
           <button
@@ -540,37 +569,28 @@ function App() {
         </div>
       )}
 
-      {/* Bottom navigation */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-between px-2 py-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-20">
         <button
           onClick={() => setView("matches")}
-          className={`flex flex-col items-center text-xs font-medium w-full py-1 ${
-            view === "matches" ? "text-brand-600" : "text-gray-400"
-          }`}
+          className={`flex flex-col items-center text-xs font-medium w-full py-1 ${view === "matches" ? "text-brand-600" : "text-gray-400"}`}
         >
           <Gamepad2 size={22} className="mb-1" /> Jogos
         </button>
         <button
           onClick={() => setView("champions")}
-          className={`flex flex-col items-center text-xs font-medium w-full py-1 ${
-            view === "champions" ? "text-yellow-500" : "text-gray-400"
-          }`}
+          className={`flex flex-col items-center text-xs font-medium w-full py-1 ${view === "champions" ? "text-yellow-500" : "text-gray-400"}`}
         >
           <Medal size={22} className="mb-1" /> Pódio
         </button>
         <button
           onClick={() => setView("ranking")}
-          className={`flex flex-col items-center text-xs font-medium w-full py-1 ${
-            view === "ranking" ? "text-brand-600" : "text-gray-400"
-          }`}
+          className={`flex flex-col items-center text-xs font-medium w-full py-1 ${view === "ranking" ? "text-brand-600" : "text-gray-400"}`}
         >
           <Trophy size={22} className="mb-1" /> Ranking
         </button>
         <button
           onClick={() => setView("rules")}
-          className={`flex flex-col items-center text-xs font-medium w-full py-1 ${
-            view === "rules" ? "text-brand-600" : "text-gray-400"
-          }`}
+          className={`flex flex-col items-center text-xs font-medium w-full py-1 ${view === "rules" ? "text-brand-600" : "text-gray-400"}`}
         >
           <BookOpen size={22} className="mb-1" /> Regras
         </button>

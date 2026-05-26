@@ -1,4 +1,4 @@
-import { Lock, AlertCircle, Pencil, CheckCircle2 } from "lucide-react";
+import { Lock } from "lucide-react";
 
 export default function MatchCard({
   match,
@@ -8,148 +8,157 @@ export default function MatchCard({
   points,
   onChangeHome,
   onChangeAway,
+  isLockedOverride,
 }) {
-  const matchDate = new Date(match.match_time);
-  const now = new Date();
+  const isLocked =
+    isLockedOverride !== undefined
+      ? isLockedOverride
+      : new Date() > new Date(match.match_time) || match.status === "finished";
 
-  // Bloqueia se o jogo já começou/terminou OU se o usuário não pagou
-  const isTimeLocked = now >= matchDate || match.status === "finished";
-  const isPaymentLocked = paymentStatus !== "paid";
-  const isLocked = isTimeLocked || isPaymentLocked;
+  const isPaid = paymentStatus === "paid";
+  const canEdit = !isLocked && isPaid;
 
-  // Verifica se o usuário já preencheu os dois campos
-  const isFilled = homeScore !== "" && awayScore !== "";
-  // Verifica se está totalmente vazio (para chamar a atenção)
-  const isEmpty = homeScore === "" || awayScore === "";
+  const matchDate = new Date(match.match_time).toLocaleString("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+  });
+
+  // 👇 AGORA SIM: Lê a imagem se for URL, ou o Emoji se for texto!
+  const renderTeamBadge = (team) => {
+    if (team?.flag) {
+      // Se for um link de imagem oficial (URL)
+      if (team.flag.startsWith("http")) {
+        return (
+          <img
+            src={team.flag}
+            alt={team.name}
+            className="w-11 h-8 object-cover rounded-sm border border-gray-200 mb-2 shadow-sm"
+          />
+        );
+      }
+      // Se for um emoji isolado
+      return (
+        <div className="w-11 h-8 bg-gray-50 rounded flex items-center justify-center text-2xl shadow-sm border border-gray-200 mb-2">
+          {team.flag}
+        </div>
+      );
+    }
+    // Se não tiver bandeira cadastrada ainda
+    return (
+      <div className="w-11 h-8 bg-gray-100 rounded flex items-center justify-center shadow-sm border border-gray-200 mb-2">
+        <span className="text-[10px] font-black text-gray-400">
+          {team?.name?.substring(0, 3).toUpperCase()}
+        </span>
+      </div>
+    );
+  };
 
   return (
-    <div
-      className={`bg-white rounded-xl shadow-sm border overflow-hidden relative transition-all ${
-        isPaymentLocked
-          ? "border-red-200"
-          : !isLocked && isEmpty
-            ? "border-brand-300 ring-1 ring-brand-100"
-            : "border-gray-200"
-      }`}
-    >
-      <div
-        className={`p-2 text-center text-xs font-bold uppercase tracking-wider text-white ${
-          match.phase === "knockout" ? "bg-orange-500" : "bg-brand-600"
-        }`}
-      >
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col relative transition-all hover:shadow-md">
+      {/* CABEÇALHO VERMELHO */}
+      <div className="bg-brand-700 text-white text-center py-2 text-xs font-black tracking-wider flex items-center justify-center gap-2">
+        <span className="text-base">🏆</span>
         {match.phase === "knockout"
-          ? "🔥 Mata-Mata (5/3 pts)"
-          : "📊 Fase de Grupos (5/3 pts)"}
+          ? "MATA-MATA (10/7 PTS)"
+          : "FASE DE GRUPOS (5/3 PTS)"}
       </div>
 
-      <div className="p-5">
-        <div
-          className={`text-center text-xs font-semibold uppercase tracking-wide flex justify-center items-center gap-1 mb-4 ${
-            isTimeLocked ? "text-red-500" : "text-gray-400"
-          }`}
-        >
-          {matchDate.toLocaleString("pt-BR", {
-            dateStyle: "short",
-            timeStyle: "short",
-          })}
-
-          {isTimeLocked && (
-            <Lock size={12} className="ml-1" title="Tempo Esgotado" />
-          )}
-          {isPaymentLocked && !isTimeLocked && (
-            <AlertCircle
-              size={12}
-              className="ml-1 text-red-500"
-              title="Pagamento Pendente"
-            />
-          )}
+      <div className="p-4 flex-grow flex flex-col">
+        {/* DATA E CADEADO */}
+        <div className="text-center mb-4 flex items-center justify-center gap-2">
+          <span className="text-brand-600 text-xs font-bold">{matchDate}</span>
+          {isLocked && <Lock size={14} className="text-brand-600" />}
         </div>
 
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex flex-col items-center flex-1">
-            <span className="text-4xl mb-2" title={match.teams_home?.name}>
-              {match.teams_home?.flag}
-            </span>
-            <span className="font-bold text-gray-700 text-sm text-center line-clamp-1">
+        {/* ÁREA DOS TIMES E PLACAR */}
+        <div className="flex items-center justify-between mb-6">
+          {/* TIME DA CASA */}
+          <div className="flex flex-col items-center flex-1 w-24">
+            {renderTeamBadge(match.teams_home)}
+            <span className="text-[10px] md:text-xs font-bold text-gray-700 text-center uppercase leading-tight">
               {match.teams_home?.name}
             </span>
           </div>
 
-          <div className="flex items-center gap-2">
+          {/* INPUTS DE PONTUAÇÃO */}
+          <div className="flex items-center gap-2 md:gap-3 px-2">
             <input
               type="number"
               min="0"
+              max="20"
               value={homeScore}
               onChange={(e) => onChangeHome(e.target.value)}
-              disabled={isLocked}
-              placeholder="-"
-              className={`w-12 h-14 text-center text-xl font-black rounded-lg border outline-none transition-all ${
-                isLocked
-                  ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                  : isEmpty
-                    ? "bg-brand-50 text-brand-700 border-brand-300 shadow-inner focus:bg-white focus:border-brand-500 focus:ring-2 focus:ring-brand-200 placeholder:text-brand-300"
-                    : "bg-white text-gray-800 border-gray-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-200"
+              disabled={!canEdit}
+              className={`w-10 h-10 md:w-12 md:h-12 text-center text-lg md:text-xl font-black rounded-lg outline-none transition-all ${
+                canEdit
+                  ? "border-2 border-gray-300 focus:border-brand-500 text-gray-800 shadow-inner"
+                  : "border border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed"
               }`}
             />
-            <span className="text-gray-300 font-bold text-lg">X</span>
+
+            <span className="text-gray-300 font-black text-sm md:text-lg">
+              X
+            </span>
+
             <input
               type="number"
               min="0"
+              max="20"
               value={awayScore}
               onChange={(e) => onChangeAway(e.target.value)}
-              disabled={isLocked}
-              placeholder="-"
-              className={`w-12 h-14 text-center text-xl font-black rounded-lg border outline-none transition-all ${
-                isLocked
-                  ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                  : isEmpty
-                    ? "bg-brand-50 text-brand-700 border-brand-300 shadow-inner focus:bg-white focus:border-brand-500 focus:ring-2 focus:ring-brand-200 placeholder:text-brand-300"
-                    : "bg-white text-gray-800 border-gray-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-200"
+              disabled={!canEdit}
+              className={`w-10 h-10 md:w-12 md:h-12 text-center text-lg md:text-xl font-black rounded-lg outline-none transition-all ${
+                canEdit
+                  ? "border-2 border-gray-300 focus:border-brand-500 text-gray-800 shadow-inner"
+                  : "border border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed"
               }`}
             />
           </div>
 
-          <div className="flex flex-col items-center flex-1">
-            <span className="text-4xl mb-2" title={match.teams_away?.name}>
-              {match.teams_away?.flag}
-            </span>
-            <span className="font-bold text-gray-700 text-sm text-center line-clamp-1">
+          {/* TIME VISITANTE */}
+          <div className="flex flex-col items-center flex-1 w-24">
+            {renderTeamBadge(match.teams_away)}
+            <span className="text-[10px] md:text-xs font-bold text-gray-700 text-center uppercase leading-tight">
               {match.teams_away?.name}
             </span>
           </div>
         </div>
 
-        {/* FEEDBACK VISUAL INTUITIVO */}
-        {!isLocked && (
-          <div className="mt-4 flex justify-center h-6">
-            {isEmpty ? (
-              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-brand-600 bg-brand-50 px-3 py-1 rounded-full animate-pulse border border-brand-100">
-                <Pencil size={12} /> Toque para palpitar
+        {/* RODAPÉ: RESULTADO OFICIAL E PONTOS */}
+        <div className="mt-auto bg-gray-50 rounded-lg p-3 border border-gray-100">
+          {match.status === "finished" ? (
+            <div className="text-center mb-2">
+              <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider block mb-1">
+                Resultado Oficial
               </span>
-            ) : isFilled ? (
-              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-gray-500">
-                <CheckCircle2 size={14} className="text-green-500" /> Palpite
-                preenchido
-              </span>
-            ) : null}
-          </div>
-        )}
-
-        {/* RESULTADO FINAL (Aparece apenas quando o jogo acaba) */}
-        {match.status === "finished" && (
-          <div className="mt-4 bg-gray-50 rounded-lg p-3 text-center border border-gray-200">
-            <p className="text-[10px] text-gray-400 font-bold uppercase mb-1">
-              Resultado Oficial
-            </p>
-            <p className="text-xl font-black text-gray-800 bg-white inline-block px-4 py-1 rounded border border-gray-100 shadow-sm">
-              {match.home_score} <span className="text-gray-300 mx-1">x</span>{" "}
-              {match.away_score}
-            </p>
-            <div className="mt-2 text-sm font-bold text-green-600 bg-green-50 py-1 rounded">
-              Ganhou: {points !== null ? points : 0} pts
+              <div className="flex justify-center items-center gap-2">
+                <span className="font-black text-lg text-gray-800">
+                  {match.home_score}
+                </span>
+                <span className="text-gray-400 text-xs font-bold">x</span>
+                <span className="font-black text-lg text-gray-800">
+                  {match.away_score}
+                </span>
+              </div>
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="text-center mb-2">
+              <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider block">
+                Aguardando Jogo
+              </span>
+            </div>
+          )}
+
+          {paymentStatus === "paid" ? (
+            <div className="bg-green-50 text-green-700 font-bold text-xs text-center py-2 rounded border border-green-100">
+              {points !== null ? `Ganhou: ${points} pts` : "Ganhou: 0 pts"}
+            </div>
+          ) : (
+            <div className="bg-red-50 text-red-600 font-bold text-xs text-center py-2 rounded border border-red-100">
+              Palpites Bloqueados
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
