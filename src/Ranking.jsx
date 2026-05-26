@@ -88,11 +88,20 @@ export default function Ranking() {
                     ? user.name || user.display_name
                     : `Jogador ${user.user_id.substring(0, 5).toUpperCase()}`}
 
-                  {user.favorite_flag && (
-                    <span className="text-xl" title="Aposta para Campeão">
-                      {user.favorite_flag}
-                    </span>
-                  )}
+                  {/* LÓGICA DE IMAGEM ATUALIZADA AQUI 👇 */}
+                  {user.favorite_flag &&
+                    (user.favorite_flag.startsWith("http") ? (
+                      <img
+                        src={user.favorite_flag}
+                        alt="Campeão"
+                        title="Aposta para Campeão"
+                        className="w-8 h-5 object-cover rounded-sm border border-gray-300 shadow-sm"
+                      />
+                    ) : (
+                      <span className="text-xl" title="Aposta para Campeão">
+                        {user.favorite_flag}
+                      </span>
+                    ))}
                 </div>
 
                 <div className="text-xs text-gray-500 flex items-center gap-3 mt-1">
