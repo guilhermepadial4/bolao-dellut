@@ -142,7 +142,8 @@ export default function ChampionBets({ session, paymentStatus }) {
             <option value="">Quem vai levantar a taça?</option>
             {teams.map((t) => (
               <option key={t.id} value={t.id}>
-                {t.flag} {t.name}
+                {/* Esconde a URL se for link de imagem, mostra só o nome do país */}
+                {t.flag?.startsWith("http") ? t.name : `${t.flag} ${t.name}`}
               </option>
             ))}
           </select>
@@ -161,7 +162,7 @@ export default function ChampionBets({ session, paymentStatus }) {
             <option value="">Quem amarga o 2º lugar?</option>
             {teams.map((t) => (
               <option key={t.id} value={t.id}>
-                {t.flag} {t.name}
+                {t.flag?.startsWith("http") ? t.name : `${t.flag} ${t.name}`}
               </option>
             ))}
           </select>
@@ -180,7 +181,7 @@ export default function ChampionBets({ session, paymentStatus }) {
             <option value="">Quem ganha a disputa de 3º?</option>
             {teams.map((t) => (
               <option key={t.id} value={t.id}>
-                {t.flag} {t.name}
+                {t.flag?.startsWith("http") ? t.name : `${t.flag} ${t.name}`}
               </option>
             ))}
           </select>
