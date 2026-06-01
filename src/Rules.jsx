@@ -27,7 +27,7 @@ export default function Rules() {
             <DollarSign className="text-green-600" /> Inscrição e Pagamento
           </h3>
           <p className="text-gray-600 mb-2">
-            O valor da inscrição é de <strong>R$ 60,00</strong> por
+            O valor da inscrição é de <strong>R$ 100,00</strong> por
             participante.
           </p>
           <div className="bg-green-50 p-4 rounded-lg border border-green-200 text-sm">
@@ -66,7 +66,6 @@ export default function Rules() {
               </ul>
             </div>
 
-            {/* MUDANÇA DA PONTUAÇÃO DO MATA-MATA AQUI 👇 */}
             <div className="bg-orange-50 p-4 rounded-lg border border-orange-100">
               <h4 className="font-bold text-orange-800 mb-2">🔥 Mata-Mata</h4>
               <ul className="text-sm text-orange-700 space-y-2">
@@ -91,7 +90,7 @@ export default function Rules() {
             Escolha os 3 melhores times da Copa na aba "Pódio". Os pontos são
             somados no final do torneio:
           </p>
-          <ul className="space-y-3 text-sm">
+          <ul className="space-y-3 text-sm mb-5">
             <li className="flex items-center gap-3">
               <span className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded font-bold w-20 text-center">
                 15 pts
@@ -111,6 +110,18 @@ export default function Rules() {
               Acertar o 3º Lugar
             </li>
           </ul>
+
+          <div className="bg-red-50 text-red-700 p-4 rounded-lg border border-red-200 text-sm flex items-start gap-3 shadow-sm">
+            <AlertCircle size={20} className="shrink-0 mt-0.5" />
+            <p>
+              <strong>Atenção:</strong> Os palpites para o Pódio serão{" "}
+              <strong>
+                trancados automaticamente no dia 11/06/2026 às 16:00
+              </strong>{" "}
+              (início do primeiro jogo). Depois disso, não será possível alterar
+              ou enviar novos palpites de campeão!
+            </p>
+          </div>
         </div>
 
         {/* Regras Gerais */}

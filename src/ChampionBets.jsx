@@ -17,6 +17,10 @@ export default function ChampionBets({ session, paymentStatus }) {
 
   const isPaymentLocked = paymentStatus !== "paid";
 
+  // TRAVA DE TEMPO: 11 de Junho de 2026 às 16:00 (Mês 5 porque no JavaScript Janeiro é 0)
+  const DEADLINE = new Date(2026, 5, 11, 16, 0, 0);
+  const isPastDeadline = new Date() > DEADLINE;
+
   useEffect(() => {
     async function loadData() {
       const { data: teamsData } = await supabase
@@ -44,6 +48,12 @@ export default function ChampionBets({ session, paymentStatus }) {
 
   async function handleSave(e) {
     e.preventDefault();
+
+    if (isPastDeadline) {
+      showToast("O prazo para apostar no Pódio já encerrou!", "error");
+      return;
+    }
+
     if (isPaymentLocked) {
       showToast(
         "Pague a inscrição do bolão para registar o seu pódio!",
@@ -104,13 +114,19 @@ export default function ChampionBets({ session, paymentStatus }) {
 
       <form
         onSubmit={handleSave}
-        className={`p-6 rounded-xl shadow-md border space-y-6 ${isPaymentLocked ? "bg-red-50 border-red-200" : "bg-white border-gray-100"}`}
+        className={`p-6 rounded-xl shadow-md border space-y-6 ${isPaymentLocked || isPastDeadline ? "bg-red-50 border-red-200" : "bg-white border-gray-100"}`}
       >
-        {isPaymentLocked && (
-          <div className="text-red-600 text-center font-bold text-sm bg-red-100 p-3 rounded-lg border border-red-200 mb-4 flex items-center justify-center gap-2">
-            <AlertCircle size={18} /> Os seus palpites estão bloqueados por
-            falta de pagamento.
+        {isPastDeadline ? (
+          <div className="text-red-600 text-center font-bold text-sm bg-red-100 p-3 rounded-lg border border-red-200 mb-4 flex items-center justify-center gap-2 shadow-sm">
+            <Lock size={18} /> O prazo para palpitar no Pódio já foi encerrado!
           </div>
+        ) : (
+          isPaymentLocked && (
+            <div className="text-red-600 text-center font-bold text-sm bg-red-100 p-3 rounded-lg border border-red-200 mb-4 flex items-center justify-center gap-2">
+              <AlertCircle size={18} /> Os seus palpites estão bloqueados por
+              falta de pagamento.
+            </div>
+          )
         )}
 
         <div className="relative bg-yellow-50 p-4 rounded-lg border border-yellow-200">
@@ -120,7 +136,7 @@ export default function ChampionBets({ session, paymentStatus }) {
           <select
             value={bet.champion}
             onChange={(e) => setBet({ ...bet, champion: e.target.value })}
-            disabled={isPaymentLocked}
+            disabled={isPaymentLocked || isPastDeadline}
             className="w-full mt-2 p-3 bg-white border border-yellow-300 rounded-lg font-bold text-gray-800 disabled:bg-gray-100 disabled:text-gray-400"
           >
             <option value="">Quem vai levantar a taça?</option>
@@ -139,7 +155,7 @@ export default function ChampionBets({ session, paymentStatus }) {
           <select
             value={bet.runner_up}
             onChange={(e) => setBet({ ...bet, runner_up: e.target.value })}
-            disabled={isPaymentLocked}
+            disabled={isPaymentLocked || isPastDeadline}
             className="w-full mt-2 p-3 bg-white border border-gray-300 rounded-lg font-bold text-gray-800 disabled:bg-gray-100 disabled:text-gray-400"
           >
             <option value="">Quem amarga o 2º lugar?</option>
@@ -158,7 +174,7 @@ export default function ChampionBets({ session, paymentStatus }) {
           <select
             value={bet.third_place}
             onChange={(e) => setBet({ ...bet, third_place: e.target.value })}
-            disabled={isPaymentLocked}
+            disabled={isPaymentLocked || isPastDeadline}
             className="w-full mt-2 p-3 bg-white border border-orange-300 rounded-lg font-bold text-gray-800 disabled:bg-gray-100 disabled:text-gray-400"
           >
             <option value="">Quem ganha a disputa de 3º?</option>
@@ -172,10 +188,14 @@ export default function ChampionBets({ session, paymentStatus }) {
 
         <button
           type="submit"
-          disabled={isPaymentLocked || saving}
-          className={`w-full font-bold text-lg py-4 rounded-xl flex items-center justify-center gap-2 transition shadow-lg mt-4 disabled:opacity-50 ${isPaymentLocked ? "bg-red-500 text-white cursor-not-allowed" : "bg-brand-600 text-white hover:bg-brand-700"}`}
+          disabled={isPaymentLocked || isPastDeadline || saving}
+          className={`w-full font-bold text-lg py-4 rounded-xl flex items-center justify-center gap-2 transition shadow-lg mt-4 disabled:opacity-50 ${isPaymentLocked || isPastDeadline ? "bg-red-500 text-white cursor-not-allowed" : "bg-brand-600 text-white hover:bg-brand-700"}`}
         >
-          {isPaymentLocked ? (
+          {isPastDeadline ? (
+            <>
+              <Lock size={24} /> Pódio Bloqueado
+            </>
+          ) : isPaymentLocked ? (
             <>
               <Lock size={24} /> Pagamento Pendente
             </>
