@@ -17,12 +17,15 @@ export default function Admin({ session }) {
   const [loading, setLoading] = useState(true);
   const [usersFinance, setUsersFinance] = useState([]);
 
+  // ADICIONADO O CAMPO 'round' NO ESTADO INICIAL
   const [newMatch, setNewMatch] = useState({
     home: "",
     away: "",
     time: "",
     phase: "groups",
+    round: "1",
   });
+
   const [finalResult, setFinalResult] = useState({
     champion: "",
     runner_up: "",
@@ -46,7 +49,7 @@ export default function Admin({ session }) {
     Netherlands: "Holanda",
     Italy: "Itália",
     Belgium: "Bélgica",
-    Uruguay: "Uruguai",
+    Uruguai: "Uruguai",
     Colombia: "Colômbia",
     Croatia: "Croácia",
     "United States": "Estados Unidos",
@@ -72,7 +75,6 @@ export default function Admin({ session }) {
   };
 
   useEffect(() => {
-    // CORREÇÃO DO EMAIL MAIÚSCULO/MINÚSCULO AQUI 👇
     if (session?.user?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
       fetchData();
     } else {
@@ -225,13 +227,21 @@ export default function Admin({ session }) {
       match_time: dataCorrigida,
       phase: newMatch.phase,
       status: "scheduled",
+      round: parseInt(newMatch.round), // ADICIONADO A INSERÇÃO DA RODADA
     });
 
     if (error) showToast("Erro ao criar jogo: " + error.message, "error");
     else {
       showToast("Jogo criado com sucesso!", "success");
       fetchData();
-      setNewMatch({ home: "", away: "", time: "", phase: "groups" });
+      // RESETANDO COM O CAMPO ROUND
+      setNewMatch({
+        home: "",
+        away: "",
+        time: "",
+        phase: "groups",
+        round: "1",
+      });
     }
   }
 
@@ -282,7 +292,6 @@ export default function Admin({ session }) {
       </div>
     );
 
-  // CORREÇÃO DO EMAIL MAIÚSCULO/MINÚSCULO AQUI 👇
   if (session?.user?.email?.toLowerCase() !== ADMIN_EMAIL.toLowerCase())
     return (
       <div className="text-center p-10 text-red-500 font-bold">
@@ -453,6 +462,24 @@ export default function Admin({ session }) {
             </select>
           </div>
 
+          {/* ADICIONADO CAMPO DE RODADA AQUI */}
+          <div className="flex-1 min-w-[80px]">
+            <label className="text-[10px] text-gray-500 font-bold ml-1">
+              Rodada
+            </label>
+            <select
+              className="w-full p-2 border rounded text-xs outline-none focus:border-brand-500"
+              onChange={(e) =>
+                setNewMatch({ ...newMatch, round: e.target.value })
+              }
+              value={newMatch.round}
+            >
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+            </select>
+          </div>
+
           <div className="flex-1 min-w-[120px]">
             <label className="text-[10px] text-gray-500 font-bold ml-1">
               Casa
@@ -535,6 +562,12 @@ export default function Admin({ session }) {
                 >
                   {match.phase === "knockout" ? "Mata-Mata" : "Fase de Grupos"}
                 </span>
+                {/* Opcional: exibir a rodada aqui também */}
+                {match.round && (
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-700">
+                    Rodada {match.round}
+                  </span>
+                )}
               </div>
             </div>
             <div className="flex gap-2">
