@@ -545,7 +545,7 @@ function App() {
             &copy; {new Date().getFullYear()} Bolão Dellut. Criado e
             administrado por{" "}
             <a
-              href="#"
+              href="https://www.linkedin.com/in/guilhermepadial/"
               target="_blank"
               className="font-bold text-gray-500 hover:text-brand-600 transition-colors"
             >
