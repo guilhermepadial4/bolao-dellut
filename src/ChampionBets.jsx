@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import { supabase } from "./supabaseClient";
-import { Trophy, Medal, Award, Save, Lock, AlertCircle } from "lucide-react";
+import { Trophy, Medal, Award, Save, Lock } from "lucide-react";
 import { useToast } from "./ToastContext";
 
-export default function ChampionBets({ session, paymentStatus }) {
+export default function ChampionBets({ session }) {
   const [teams, setTeams] = useState([]);
   const [bet, setBet] = useState({
     champion: "",
@@ -14,8 +14,6 @@ export default function ChampionBets({ session, paymentStatus }) {
   const [saving, setSaving] = useState(false);
 
   const showToast = useToast();
-
-  const isPaymentLocked = paymentStatus !== "paid";
 
   // TRAVA DE TEMPO: 11 de Junho de 2026 às 16:00 (Mês 5 porque no JavaScript Janeiro é 0)
   const DEADLINE = new Date(2026, 5, 11, 16, 0, 0);
@@ -54,13 +52,6 @@ export default function ChampionBets({ session, paymentStatus }) {
       return;
     }
 
-    if (isPaymentLocked) {
-      showToast(
-        "Pague a inscrição do bolão para registar o seu pódio!",
-        "warning",
-      );
-      return;
-    }
     if (!bet.champion || !bet.runner_up || !bet.third_place) {
       showToast("Por favor, selecione as três equipas!", "warning");
       return;
@@ -114,19 +105,12 @@ export default function ChampionBets({ session, paymentStatus }) {
 
       <form
         onSubmit={handleSave}
-        className={`p-6 rounded-xl shadow-md border space-y-6 ${isPaymentLocked || isPastDeadline ? "bg-red-50 border-red-200" : "bg-white border-gray-100"}`}
+        className={`p-6 rounded-xl shadow-md border space-y-6 ${isPastDeadline ? "bg-red-50 border-red-200" : "bg-white border-gray-100"}`}
       >
-        {isPastDeadline ? (
+        {isPastDeadline && (
           <div className="text-red-600 text-center font-bold text-sm bg-red-100 p-3 rounded-lg border border-red-200 mb-4 flex items-center justify-center gap-2 shadow-sm">
             <Lock size={18} /> O prazo para palpitar no Pódio já foi encerrado!
           </div>
-        ) : (
-          isPaymentLocked && (
-            <div className="text-red-600 text-center font-bold text-sm bg-red-100 p-3 rounded-lg border border-red-200 mb-4 flex items-center justify-center gap-2">
-              <AlertCircle size={18} /> Os seus palpites estão bloqueados por
-              falta de pagamento.
-            </div>
-          )
         )}
 
         <div className="relative bg-yellow-50 p-4 rounded-lg border border-yellow-200">
@@ -136,13 +120,12 @@ export default function ChampionBets({ session, paymentStatus }) {
           <select
             value={bet.champion}
             onChange={(e) => setBet({ ...bet, champion: e.target.value })}
-            disabled={isPaymentLocked || isPastDeadline}
+            disabled={isPastDeadline}
             className="w-full mt-2 p-3 bg-white border border-yellow-300 rounded-lg font-bold text-gray-800 disabled:bg-gray-100 disabled:text-gray-400"
           >
             <option value="">Quem vai levantar a taça?</option>
             {teams.map((t) => (
               <option key={t.id} value={t.id}>
-                {/* Esconde a URL se for link de imagem, mostra só o nome do país */}
                 {t.flag?.startsWith("http") ? t.name : `${t.flag} ${t.name}`}
               </option>
             ))}
@@ -156,7 +139,7 @@ export default function ChampionBets({ session, paymentStatus }) {
           <select
             value={bet.runner_up}
             onChange={(e) => setBet({ ...bet, runner_up: e.target.value })}
-            disabled={isPaymentLocked || isPastDeadline}
+            disabled={isPastDeadline}
             className="w-full mt-2 p-3 bg-white border border-gray-300 rounded-lg font-bold text-gray-800 disabled:bg-gray-100 disabled:text-gray-400"
           >
             <option value="">Quem amarga o 2º lugar?</option>
@@ -175,7 +158,7 @@ export default function ChampionBets({ session, paymentStatus }) {
           <select
             value={bet.third_place}
             onChange={(e) => setBet({ ...bet, third_place: e.target.value })}
-            disabled={isPaymentLocked || isPastDeadline}
+            disabled={isPastDeadline}
             className="w-full mt-2 p-3 bg-white border border-orange-300 rounded-lg font-bold text-gray-800 disabled:bg-gray-100 disabled:text-gray-400"
           >
             <option value="">Quem ganha a disputa de 3º?</option>
@@ -189,16 +172,12 @@ export default function ChampionBets({ session, paymentStatus }) {
 
         <button
           type="submit"
-          disabled={isPaymentLocked || isPastDeadline || saving}
-          className={`w-full font-bold text-lg py-4 rounded-xl flex items-center justify-center gap-2 transition shadow-lg mt-4 disabled:opacity-50 ${isPaymentLocked || isPastDeadline ? "bg-red-500 text-white cursor-not-allowed" : "bg-brand-600 text-white hover:bg-brand-700"}`}
+          disabled={isPastDeadline || saving}
+          className={`w-full font-bold text-lg py-4 rounded-xl flex items-center justify-center gap-2 transition shadow-lg mt-4 disabled:opacity-50 ${isPastDeadline ? "bg-red-500 text-white cursor-not-allowed" : "bg-brand-600 text-white hover:bg-brand-700"}`}
         >
           {isPastDeadline ? (
             <>
               <Lock size={24} /> Pódio Bloqueado
-            </>
-          ) : isPaymentLocked ? (
-            <>
-              <Lock size={24} /> Pagamento Pendente
             </>
           ) : saving ? (
             "A salvar..."

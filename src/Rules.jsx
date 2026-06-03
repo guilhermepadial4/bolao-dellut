@@ -1,10 +1,4 @@
-import {
-  BookOpen,
-  Target,
-  Trophy,
-  DollarSign,
-  AlertCircle,
-} from "lucide-react";
+import { BookOpen, Target, Trophy, AlertCircle } from "lucide-react";
 
 export default function Rules() {
   return (
@@ -21,29 +15,6 @@ export default function Rules() {
       </div>
 
       <div className="space-y-6">
-        {/* Pagamento */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-          <h3 className="font-bold text-lg text-gray-800 flex items-center gap-2 mb-4 border-b pb-2">
-            <DollarSign className="text-green-600" /> Inscrição e Pagamento
-          </h3>
-          <p className="text-gray-600 mb-2">
-            O valor da inscrição é de <strong>R$ 100,00</strong> por
-            participante.
-          </p>
-          <div className="bg-green-50 p-4 rounded-lg border border-green-200 text-sm">
-            <p className="font-bold text-green-800 mb-1">
-              Faça o PIX para confirmar sua participação:
-            </p>
-            <p className="text-green-700 font-mono text-lg bg-white inline-block px-4 py-2 rounded border border-green-300 my-2 shadow-sm font-bold select-all">
-              SUA-CHAVE-PIX-AQUI
-            </p>
-            <p className="text-green-600 text-xs mt-1">
-              * Após o pagamento, o Admin vai atualizar seu status para "Pago"
-              no sistema.
-            </p>
-          </div>
-        </div>
-
         {/* Pontuação de Jogos */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
           <h3 className="font-bold text-lg text-gray-800 flex items-center gap-2 mb-4 border-b pb-2">
