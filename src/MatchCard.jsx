@@ -2,7 +2,6 @@ import { Lock } from "lucide-react";
 
 export default function MatchCard({
   match,
-  paymentStatus,
   homeScore,
   awayScore,
   points,
@@ -15,18 +14,15 @@ export default function MatchCard({
       ? isLockedOverride
       : new Date() > new Date(match.match_time) || match.status === "finished";
 
-  const isPaid = paymentStatus === "paid";
-  const canEdit = !isLocked && isPaid;
+  const canEdit = !isLocked;
 
   const matchDate = new Date(match.match_time).toLocaleString("pt-BR", {
     dateStyle: "short",
     timeStyle: "short",
   });
 
-  // 👇 AGORA SIM: Lê a imagem se for URL, ou o Emoji se for texto!
   const renderTeamBadge = (team) => {
     if (team?.flag) {
-      // Se for um link de imagem oficial (URL)
       if (team.flag.startsWith("http")) {
         return (
           <img
@@ -36,14 +32,12 @@ export default function MatchCard({
           />
         );
       }
-      // Se for um emoji isolado
       return (
         <div className="w-11 h-8 bg-gray-50 rounded flex items-center justify-center text-2xl shadow-sm border border-gray-200 mb-2">
           {team.flag}
         </div>
       );
     }
-    // Se não tiver bandeira cadastrada ainda
     return (
       <div className="w-11 h-8 bg-gray-100 rounded flex items-center justify-center shadow-sm border border-gray-200 mb-2">
         <span className="text-[10px] font-black text-gray-400">
@@ -149,15 +143,9 @@ export default function MatchCard({
             </div>
           )}
 
-          {paymentStatus === "paid" ? (
-            <div className="bg-green-50 text-green-700 font-bold text-xs text-center py-2 rounded border border-green-100">
-              {points !== null ? `Ganhou: ${points} pts` : "Ganhou: 0 pts"}
-            </div>
-          ) : (
-            <div className="bg-red-50 text-red-600 font-bold text-xs text-center py-2 rounded border border-red-100">
-              Palpites Bloqueados
-            </div>
-          )}
+          <div className="bg-green-50 text-green-700 font-bold text-xs text-center py-2 rounded border border-green-100">
+            {points !== null ? `Ganhou: ${points} pts` : "Ganhou: 0 pts"}
+          </div>
         </div>
       </div>
     </div>

@@ -16,7 +16,7 @@ import {
   UserCircle,
   BookOpen,
   Save,
-  Clock, // Novo ícone para as regras de horário
+  Clock,
 } from "lucide-react";
 import { useToast } from "./ToastContext";
 import logo from "./images/logo-dellut-removebg-preview.png";
@@ -31,14 +31,12 @@ function App() {
   const [hasProfile, setHasProfile] = useState(true);
   const [tempName, setTempName] = useState("");
   const [userName, setUserName] = useState("");
-  const [paymentStatus, setPaymentStatus] = useState("pending");
-  const [pixKey, setPixKey] = useState("");
   const [loadingApp, setLoadingApp] = useState(true);
 
   const showToast = useToast();
   const ADMIN_EMAIL = "guilherme@dellut.com.br";
 
-  // ─── LÓGICA DE RODADAS E FECHAMENTO ────────────────────────────────────
+  // ─── LÓGICA DE RODADAS E FECHAMENTO (NOVA REGRA 12h) ──────────────────
   const getRoundInfo = (match) => {
     if (match.phase === "knockout") {
       return { name: "🔥 Mata-Mata", deadline: new Date(match.match_time) };
@@ -48,25 +46,25 @@ function App() {
     const m = d.getMonth() + 1;
     const day = d.getDate();
 
-    // Mês 6 (Junho). Define o nome da rodada e o horário limite (23:59 do dia anterior)
+    // Mês 6 (Junho). Define o nome da rodada e o horário limite (12h00 do dia do 1º jogo)
     if (m === 6) {
       if (day >= 11 && day <= 17) {
         return {
           name: "Rodada 1",
-          deadline: new Date(2026, 5, 10, 23, 59, 59),
-        }; // Fecha 10/06
+          deadline: new Date(2026, 5, 11, 12, 0, 0), // Fecha 11/06 às 12:00
+        };
       }
       if (day >= 18 && day <= 23) {
         return {
           name: "Rodada 2",
-          deadline: new Date(2026, 5, 17, 23, 59, 59),
-        }; // Fecha 17/06
+          deadline: new Date(2026, 5, 18, 12, 0, 0), // Fecha 18/06 às 12:00
+        };
       }
       if (day >= 24 && day <= 30) {
         return {
           name: "Rodada 3",
-          deadline: new Date(2026, 5, 23, 23, 59, 59),
-        }; // Fecha 23/06
+          deadline: new Date(2026, 5, 24, 12, 0, 0), // Fecha 24/06 às 12:00
+        };
       }
     }
 
@@ -85,11 +83,7 @@ function App() {
       }
 
       try {
-        await Promise.all([
-          fetchMatches(),
-          checkUserData(currentSession),
-          fetchPixKey(),
-        ]);
+        await Promise.all([fetchMatches(), checkUserData(currentSession)]);
         await fetchBets(currentSession.user.id);
       } catch (err) {
         console.error("Erro no carregamento dos dados:", err);
@@ -116,7 +110,6 @@ function App() {
         } else {
           setMatches([]);
           setBets({});
-          setPaymentStatus("pending");
           setHasProfile(true);
           setUserName("");
           setView("matches");
@@ -136,22 +129,6 @@ function App() {
     };
   }, []);
 
-  async function fetchPixKey() {
-    try {
-      const { data, error } = await supabase
-        .from("tournament_settings")
-        .select("pix_key")
-        .eq("id", 1)
-        .maybeSingle();
-
-      if (!error && data?.pix_key) {
-        setPixKey(data.pix_key);
-      }
-    } catch (e) {
-      console.warn("Sem chave PIX encontrada", e);
-    }
-  }
-
   async function checkUserData(currentSession) {
     const userId = currentSession.user.id;
     const { data: profile, error: profileError } = await supabase
@@ -170,8 +147,6 @@ function App() {
       setHasProfile(true);
       setUserName(profile.name);
     }
-
-    setPaymentStatus("paid");
   }
 
   async function fetchMatches() {
@@ -212,20 +187,11 @@ function App() {
   }
 
   async function handleSaveAllBets() {
-    if (paymentStatus !== "paid") {
-      showToast(
-        "Faça o pagamento da inscrição para liberar seus palpites!",
-        "warning",
-      );
-      return;
-    }
-
     const now = new Date();
 
     const betsToSave = filteredMatches
       .filter((match) => {
         const roundInfo = getRoundInfo(match);
-        // O jogo está "aberto" apenas se a hora atual for menor que o limite da rodada
         const isOpen = now < roundInfo.deadline && match.status !== "finished";
         const bet = bets[match.id];
         return (
@@ -318,7 +284,6 @@ function App() {
     return isOpen && bet && bet.home !== "" && bet.away !== "";
   });
 
-  // Agrupa visualmente usando o Nome da Rodada e a Data Limite
   const matchesGroupedByRound = filteredMatches.reduce((groups, match) => {
     const roundInfo = getRoundInfo(match);
     const roundName = roundInfo.name;
@@ -396,11 +361,6 @@ function App() {
             </button>
           )}
           <div className="flex flex-col items-end">
-            <span
-              className={`text-[10px] font-bold px-2 py-1 rounded-full ${paymentStatus === "paid" ? "bg-green-100 text-green-700 border border-green-200" : "bg-red-50 text-red-600 border border-red-200"}`}
-            >
-              {paymentStatus === "paid" ? "Pago ✅" : "Pendente 💳"}
-            </span>
             <button
               onClick={handleLogout}
               className="mt-1 text-gray-400 hover:text-red-500 transition"
@@ -413,24 +373,6 @@ function App() {
 
       <main className="max-w-5xl mx-auto p-4 flex flex-col min-h-[80vh]">
         <div className="flex-grow">
-          {paymentStatus !== "paid" && view !== "rules" && view !== "admin" && (
-            <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg mb-6 shadow-sm">
-              <p className="text-red-700 text-sm font-bold">
-                ⚠️ O seu pagamento está Pendente!
-              </p>
-              <p className="text-red-600 text-xs mt-1">
-                Os seus palpites estão bloqueados. Vá ao menu{" "}
-                <button
-                  onClick={() => setView("rules")}
-                  className="underline font-bold"
-                >
-                  Regras
-                </button>{" "}
-                para ver a chave PIX.
-              </p>
-            </div>
-          )}
-
           {view === "matches" && (
             <>
               <div className="mb-6 flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
@@ -476,7 +418,7 @@ function App() {
                               <Clock size={12} />
                               <span>
                                 {roundName.includes("Rodada")
-                                  ? `Encerra dia ${roundData.deadline.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })} às 23:59`
+                                  ? `Encerra dia ${roundData.deadline.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })} às 12:00`
                                   : "Encerra no horário do jogo"}
                               </span>
                             </div>
@@ -488,7 +430,6 @@ function App() {
                           {roundData.matches.map((match) => {
                             const now = new Date();
                             const rInfo = getRoundInfo(match);
-                            // Envia para o MatchCard a informação de que a rodada FECHOU
                             const isLocked =
                               now > rInfo.deadline ||
                               match.status === "finished";
@@ -497,8 +438,7 @@ function App() {
                               <MatchCard
                                 key={match.id}
                                 match={match}
-                                paymentStatus={paymentStatus}
-                                isLockedOverride={isLocked} // <- Parâmetro vital novo
+                                isLockedOverride={isLocked}
                                 homeScore={bets[match.id]?.home ?? ""}
                                 awayScore={bets[match.id]?.away ?? ""}
                                 points={bets[match.id]?.points ?? null}
@@ -533,11 +473,9 @@ function App() {
           )}
 
           {view === "ranking" && <Ranking />}
-          {view === "champions" && (
-            <ChampionBets session={session} paymentStatus={paymentStatus} />
-          )}
+          {view === "champions" && <ChampionBets session={session} />}
           {view === "admin" && <Admin session={session} />}
-          {view === "rules" && <Rules pixKey={pixKey} />}
+          {view === "rules" && <Rules />}
         </div>
 
         <div className="mt-12 mb-4 text-center">
@@ -556,7 +494,7 @@ function App() {
         </div>
       </main>
 
-      {view === "matches" && paymentStatus === "paid" && hasUnsavedBets && (
+      {view === "matches" && hasUnsavedBets && (
         <div className="fixed bottom-20 left-0 right-0 flex justify-center z-30 px-4 pointer-events-none">
           <button
             onClick={handleSaveAllBets}
