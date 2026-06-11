@@ -32,11 +32,11 @@ function App() {
   const [tempName, setTempName] = useState("");
   const [userName, setUserName] = useState("");
   const [loadingApp, setLoadingApp] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false); // <-- NOVO ESTADO AQUI
 
   const showToast = useToast();
-  const ADMIN_EMAIL = "guilherme@dellut.com.br";
 
-  // ─── LÓGICA DE RODADAS E FECHAMENTO (NOVA REGRA 12h) ──────────────────
+  // ─── LÓGICA DE RODADAS E FECHAMENTO (REGRA 12h) ──────────────────
   const getRoundInfo = (match) => {
     if (match.phase === "knockout") {
       return { name: "🔥 Mata-Mata", deadline: new Date(match.match_time) };
@@ -46,29 +46,27 @@ function App() {
     const m = d.getMonth() + 1;
     const day = d.getDate();
 
-    // Mês 6 (Junho). Define o nome da rodada e o horário limite (12h00 do dia do 1º jogo)
     if (m === 6) {
       if (day >= 11 && day <= 17) {
         return {
           name: "Rodada 1",
-          deadline: new Date(2026, 5, 11, 12, 0, 0), // Fecha 11/06 às 12:00
+          deadline: new Date(2026, 5, 11, 12, 0, 0),
         };
       }
       if (day >= 18 && day <= 23) {
         return {
           name: "Rodada 2",
-          deadline: new Date(2026, 5, 18, 12, 0, 0), // Fecha 18/06 às 12:00
+          deadline: new Date(2026, 5, 18, 12, 0, 0),
         };
       }
       if (day >= 24 && day <= 30) {
         return {
           name: "Rodada 3",
-          deadline: new Date(2026, 5, 24, 12, 0, 0), // Fecha 24/06 às 12:00
+          deadline: new Date(2026, 5, 24, 12, 0, 0),
         };
       }
     }
 
-    // Fallback de segurança se algum jogo fugir das datas
     return { name: "Fase de Grupos", deadline: new Date(match.match_time) };
   };
   // ────────────────────────────────────────────────────────────────────────
@@ -112,6 +110,7 @@ function App() {
           setBets({});
           setHasProfile(true);
           setUserName("");
+          setIsAdmin(false);
           setView("matches");
           setLoadingApp(false);
         }
@@ -133,19 +132,22 @@ function App() {
     const userId = currentSession.user.id;
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("name")
+      .select("name, is_admin") // <-- AGORA PUXA A COLUNA DO BANCO
       .eq("id", userId)
       .maybeSingle();
 
     if (profileError) {
       console.error("Erro ao buscar perfil:", profileError);
       setHasProfile(true);
+      setIsAdmin(false);
     } else if (!profile) {
       setHasProfile(false);
       setUserName("");
+      setIsAdmin(false);
     } else {
       setHasProfile(true);
       setUserName(profile.name);
+      setIsAdmin(profile.is_admin === true); // <-- SALVA SE É ADMIN
     }
   }
 
@@ -351,8 +353,8 @@ function App() {
           </div>
         </div>
         <div className="flex items-center gap-4">
-          {session?.user?.email?.toLowerCase() ===
-            ADMIN_EMAIL.toLowerCase() && (
+          {/* VERIFICAÇÃO SE É ADMIN DE VERDADE 👇 */}
+          {isAdmin && (
             <button
               onClick={() => setView("admin")}
               className="text-xs bg-gray-800 text-white px-3 py-1.5 rounded flex items-center gap-1 hover:bg-gray-700 transition"
@@ -405,7 +407,6 @@ function App() {
                   {Object.entries(matchesGroupedByRound).map(
                     ([roundName, roundData]) => (
                       <div key={roundName} className="space-y-4">
-                        {/* --- CABEÇALHO DA RODADA --- */}
                         <div className="flex items-center gap-3">
                           <div className="flex flex-col bg-brand-100 text-brand-800 px-5 py-2.5 rounded-xl shadow-sm border border-brand-200">
                             <div className="flex items-center gap-2">
@@ -474,7 +475,7 @@ function App() {
 
           {view === "ranking" && <Ranking />}
           {view === "champions" && <ChampionBets session={session} />}
-          {view === "admin" && <Admin session={session} />}
+          {view === "admin" && <Admin session={session} isAdmin={isAdmin} />}
           {view === "rules" && <Rules />}
         </div>
 
