@@ -11,13 +11,13 @@ import {
 } from "lucide-react";
 import { useToast } from "./ToastContext";
 
-export default function Admin({ session }) {
+// RECEBENDO A PROPRIEDADE IS_ADMIN AQUI 👇
+export default function Admin({ session, isAdmin }) {
   const [matches, setMatches] = useState([]);
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
   const [usersFinance, setUsersFinance] = useState([]);
 
-  // ADICIONADO O CAMPO 'round' NO ESTADO INICIAL
   const [newMatch, setNewMatch] = useState({
     home: "",
     away: "",
@@ -36,7 +36,6 @@ export default function Admin({ session }) {
   const [apiKey, setApiKey] = useState("");
 
   const showToast = useToast();
-  const ADMIN_EMAIL = "guilherme@dellut.com.br";
 
   const teamDictionary = {
     Brazil: "Brasil",
@@ -75,12 +74,13 @@ export default function Admin({ session }) {
   };
 
   useEffect(() => {
-    if (session?.user?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
+    // AGORA VERIFICA DIRETAMENTE A REGRA QUE VEM DO APP 👇
+    if (isAdmin) {
       fetchData();
     } else {
       setLoading(false);
     }
-  }, [session]);
+  }, [session, isAdmin]);
 
   async function fetchData() {
     setLoading(true);
@@ -227,14 +227,13 @@ export default function Admin({ session }) {
       match_time: dataCorrigida,
       phase: newMatch.phase,
       status: "scheduled",
-      round: parseInt(newMatch.round), // ADICIONADO A INSERÇÃO DA RODADA
+      round: parseInt(newMatch.round),
     });
 
     if (error) showToast("Erro ao criar jogo: " + error.message, "error");
     else {
       showToast("Jogo criado com sucesso!", "success");
       fetchData();
-      // RESETANDO COM O CAMPO ROUND
       setNewMatch({
         home: "",
         away: "",
@@ -292,7 +291,8 @@ export default function Admin({ session }) {
       </div>
     );
 
-  if (session?.user?.email?.toLowerCase() !== ADMIN_EMAIL.toLowerCase())
+  // SE NÃO FOR ADMIN (DE ACORDO COM O BANCO DE DADOS), BLOQUEIA A TELA 👇
+  if (!isAdmin)
     return (
       <div className="text-center p-10 text-red-500 font-bold">
         Acesso Negado
@@ -462,7 +462,6 @@ export default function Admin({ session }) {
             </select>
           </div>
 
-          {/* ADICIONADO CAMPO DE RODADA AQUI */}
           <div className="flex-1 min-w-[80px]">
             <label className="text-[10px] text-gray-500 font-bold ml-1">
               Rodada
@@ -562,7 +561,6 @@ export default function Admin({ session }) {
                 >
                   {match.phase === "knockout" ? "Mata-Mata" : "Fase de Grupos"}
                 </span>
-                {/* Opcional: exibir a rodada aqui também */}
                 {match.round && (
                   <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-700">
                     Rodada {match.round}
