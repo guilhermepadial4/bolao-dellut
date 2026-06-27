@@ -32,14 +32,17 @@ function App() {
   const [tempName, setTempName] = useState("");
   const [userName, setUserName] = useState("");
   const [loadingApp, setLoadingApp] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false); // <-- NOVO ESTADO AQUI
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const showToast = useToast();
 
-  // ─── LÓGICA DE RODADAS E FECHAMENTO (REGRA 12h) ──────────────────
+  // ─── LÓGICA DE RODADAS E FECHAMENTO (REGRA 1h ANTES NO MATA-MATA) ──────
   const getRoundInfo = (match) => {
     if (match.phase === "knockout") {
-      return { name: "🔥 Mata-Mata", deadline: new Date(match.match_time) };
+      const matchTime = new Date(match.match_time);
+      // Subtrai exatamente 1 hora (60 minutos * 60 segundos * 1000 milissegundos)
+      const deadline = new Date(matchTime.getTime() - 1 * 60 * 60 * 1000);
+      return { name: "🔥 Mata-Mata", deadline: deadline };
     }
 
     const d = new Date(match.match_time);
@@ -132,7 +135,7 @@ function App() {
     const userId = currentSession.user.id;
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("name, is_admin") // <-- AGORA PUXA A COLUNA DO BANCO
+      .select("name, is_admin")
       .eq("id", userId)
       .maybeSingle();
 
@@ -147,12 +150,12 @@ function App() {
     } else {
       setHasProfile(true);
       setUserName(profile.name);
-      setIsAdmin(profile.is_admin === true); // <-- SALVA SE É ADMIN
+      setIsAdmin(profile.is_admin === true);
     }
   }
 
   async function fetchMatches() {
-    const { data, error } = await supabase
+    const { data, error = null } = await supabase
       .from("matches")
       .select(
         `*, teams_home:home_team_id(name, flag), teams_away:away_team_id(name, flag)`,
@@ -325,7 +328,7 @@ function App() {
             <form onSubmit={handleSaveProfile}>
               <input
                 type="text"
-                placeholder="Ex: Guilherme Padial"
+                placeholder="Ex: Nome Sobrenome"
                 value={tempName}
                 onChange={(e) => setTempName(e.target.value)}
                 maxLength={20}
@@ -353,7 +356,6 @@ function App() {
           </div>
         </div>
         <div className="flex items-center gap-4">
-          {/* VERIFICAÇÃO SE É ADMIN DE VERDADE 👇 */}
           {isAdmin && (
             <button
               onClick={() => setView("admin")}
@@ -420,7 +422,9 @@ function App() {
                               <span>
                                 {roundName.includes("Rodada")
                                   ? `Encerra dia ${roundData.deadline.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })} às 12:00`
-                                  : "Encerra no horário do jogo"}
+                                  : roundName.includes("Mata-Mata")
+                                    ? "Encerra 1 hora antes do jogo"
+                                    : "Encerra no horário do jogo"}
                               </span>
                             </div>
                           </div>
