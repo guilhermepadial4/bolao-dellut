@@ -53,7 +53,7 @@ export default function MatchCard({
       <div className="bg-brand-700 text-white text-center py-2 text-xs font-black tracking-wider flex items-center justify-center gap-2">
         <span className="text-base">🏆</span>
         {match.phase === "knockout"
-          ? "MATA-MATA (10/7 PTS)"
+          ? "MATA-MATA (5/3 PTS)"
           : "FASE DE GRUPOS (5/3 PTS)"}
       </div>
 
